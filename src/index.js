@@ -25,6 +25,11 @@ const Chartist = require('vue-chartist')
 const dnd = require('drag-and-drop-files') //Handle Drag and Drop events
 // const chart = require('chart.js')
 
+window.onload = function(e){
+  document.getElementById('app-loader').style.display = 'none'
+  document.getElementById('app').style.removeProperty('display')
+}
+
 Vue.use(VueMaterial)
 Vue.use(Chartist)
 

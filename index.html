@@ -9,7 +9,10 @@
     <link href="https://fonts.googleapis.com/css?family=Karla" rel="stylesheet">
   </head>
   <body>
-    <div id="app">
+    <div id="app-loader">
+      <img src="img/loader.gif">
+    </div>
+    <div id="app" style="display:none">
       <div class="choose-file" v-if="!fileSize">
         <md-icon class="md-size-2x md-primary">arrow_downward</md-icon>
         <h1>Drag and drop files here</h1>
