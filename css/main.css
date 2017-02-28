@@ -1,0 +1,94 @@
+body, html {
+  height: 100%;
+  width: 100%;
+  font-family: sans-serif;
+}
+
+#loading {
+  background-color: blue;
+  height: 3px;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+h1, h2, h3, .something-like-logo {
+  font-family: 'Karla', sans-serif;
+}
+
+.primary-color {
+  color: #3f51b5;
+}
+
+.something-like-logo {
+  font-size: 22px;
+  font-weight: 800;
+  /*color: #3f51b5;*/
+  color: white;
+  line-height: 26px;
+  display: block;
+  margin: 12px 5px 16px;
+}
+
+.sidebar {
+  position: fixed;
+  width: 23%;
+  top: 0px;
+  left: 0px;
+  bottom: 0px;
+  background-color: #EAEAEA;
+  /*padding: 5px;*/
+  overflow-y: scroll;
+  z-index:2;
+}
+.sidebar .md-primary {
+  margin-right: 10px;
+}
+.sidebar .md-card-expand {
+  background-color: #F5F5F5;
+}
+.sidebar .md-card-active {
+  background-color: white;
+}
+.hidden {
+  pointer-events: none;
+  opacity: .4;
+}
+.stat-card {
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+.content {
+  position: relative;
+  padding: 15px 25px;
+  margin-left: 23%;
+  z-index: 1;
+}
+#loading {
+  background-color: blue;
+  height: 3px;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.md-table .md-table-cell {
+  position: static;
+}
+.choose-file {
+  padding: 10% 30%;
+}
+table {
+  border-collapse: collapse;
+}
+table tr:hover {
+  background-color: #F5F5F5;
+}
+table td {
+  border-top: 1px solid #eee;
+  font-size: .9em;
+  padding: 5px 15px;
+  color: #444;
+}
+.search-chips .md-input-container:after {
+  display: none
+}

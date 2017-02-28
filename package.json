@@ -1,0 +1,39 @@
+{
+  "name": "infodiz-editor",
+  "version": "0.0.1",
+  "description": "Data manipulation in a browser",
+  "main": "index.html",
+  "scripts": {
+    "watch": "watchify src/index.js -o dist/bundle.js -v",
+    "build": "browserify src/index.js -t babelify -g [ envify --NODE_ENV production ] | uglifyjs - > dist/bundle.js -v",
+    "uglify": "uglifyjs dist/bundle.js > dist/bundle.min.js"
+  },
+  "author": "Anton Zemlyansky",
+  "license": "ISC",
+  "devDependencies": {
+    "babel-cli": "^6.23.0",
+    "babel-preset-env": "^1.1.10",
+    "browserify": "^14.0.0",
+    "envify": "^4.0.0",
+    "watchify": "^3.9.0"
+  },
+  "babel": {
+    "presets": [
+      "env"
+    ]
+  },
+  "browserify": {
+    "transform": [
+      "browserify-shim"
+    ]
+  },
+  "browser": {
+    "vue": "vue/dist/vue.common",
+    "jquery": "jquery/dist/jquery.js",
+    "materialize": "materialize-css/bin/materialize.js"
+  },
+  "browserify-shim": {
+    "jquery": "$",
+    "materialize": "materialize"
+  }
+}
