@@ -386,6 +386,7 @@ function analyzeXML(stream, cb) {
       var nodes = []
       var columns = []
       var saveNode = false
+      var chunk = ''
       while ((itemsReaded < 10) && (null != (chunk = stream.read(1)))) {
         head += chunk
         //Adding node

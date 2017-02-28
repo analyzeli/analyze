@@ -18,12 +18,12 @@
           <label>Local CSV or XML file</label>
           <md-file @change.native="analyze"></md-file>
         </md-input-container>
-        <p>or paste a link</p>
+        <!-- <p>or paste a link</p>
         <md-input-container :class="{'md-input-invalid': (httpError.length > 0)}">
           <label>Link to CSV or XML file</label>
           <md-input v-model="url" @blur.native="checkUrl"></md-input>
           <span class="md-error">{{ httpError }}</span>
-        </md-input-container>
+        </md-input-container> -->
       </div>
 
       <div class="sidebar" v-if="fileSize">
