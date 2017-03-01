@@ -173,6 +173,9 @@ var app = new Vue({
     streamName: function() {
       return (this.file !== undefined) ? this.file.name : this.url.slice(this.url.lastIndexOf('/') + 1, this.url.indexOf('csv') + 3)
     },
+    streamInfo: function() {
+      return (this.file !== undefined) ? 'Last modified: ' + this.file.lastModifiedDate.toLocaleDateString("en-US") : this.url
+    },
     analyzed: function() {
       return (this.columns && (this.columns.length > 0))
     },
