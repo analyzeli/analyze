@@ -126,7 +126,7 @@ var app = new Vue({
     fileSize: 0,
     loading: false,
     w: 0,
-    statTypes: ['Group','Median'],
+    statTypes: ['Group'],
     stats: [],
     chartTypes: ['Bar', 'Line', 'Pie'],
     charts: [],
@@ -439,6 +439,7 @@ function save(collectionName, type) {
   FileSaver.saveAs(blob, app.streamName.split('.')[0] + '-' + collectionName.toLowerCase() + '.' + type)
 }
 
+// Init drag and drop or throw error
 if (window.File && window.FileReader && window.FileList && window.Blob) {
   dnd(document.body, analyzeFiles)
 } else {
