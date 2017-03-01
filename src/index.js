@@ -11,6 +11,8 @@ const FileSaver = require('file-saver')
 const xmlNodes = require('xml-nodes')
 const xmlObjects = require('xml-objects')
 const http = require('stream-http') //XHR as a stream
+const getCsvStreamStructure = require('./get-csv-stream-structure.js') //Get CSV header
+const getXmlStreamStructure = require('./get-xml-stream-structure.js') //Get XML nodes and repeated node
   //Objects
 const flat = require('flat')
 const path = require('object-path') //Acess nested object properties with a variable
@@ -358,101 +360,6 @@ function load() {
     })
 }
 
-function analyzeCsvStream(rs, cb) {
-  var head = '' //some bytes of the file
-  rs.on('readable', function() {
-    if (head.length == 0) {
-      var isFirstLine = true
-      while (isFirstLine) {
-        var chunk = rs.read(1)
-        head += chunk
-        if (chunk == '\n') {
-          isFirstLine = false
-        }
-      }
-      console.log('unshifting: ',head)
-      rs.unshift(head)
-      cb(lineParser(head.slice(0, -1))[0])
-    }
-  })
-}
-
-function analyzeXmlStream(rs, cb) {
-  var head = ''
-  rs.on('readable', function() {
-    if (head.length == 0) {
-    //Pre-process XML
-      var itemsReaded = 0
-      var node = ''
-      var item = ''
-      var nodes = []
-      var columns = []
-      var saveNode = false
-      var chunk = ''
-      while ((itemsReaded < 10) && (null != (chunk = rs.read(1)))) {
-        head += chunk
-        //Adding node
-        if ((saveNode) && ((chunk == '>') || (chunk == ' '))) {
-          saveNode = false
-
-          item = ''
-          itemsReaded = 0
-          nodes.push(node)
-
-          for (var i = 0; i < nodes.length - 1; i++) {
-            if ((nodes.indexOf(nodes[i],i+1) > 0) && (item.length == 0)) {
-              item = nodes[i]
-              itemsReaded = 2
-              //console.log(nodes)
-            }
-            else if ((item.length > 0) && (nodes[i] == item)) {
-              itemsReaded += 1
-            }
-          }
-          //console.log(node,item,itemsReaded)
-          node = ''
-        }
-
-        //End of node name
-        if ((saveNode) && ((chunk == '/') || (chunk == '?'))) {
-          saveNode = false
-        }
-
-        //Reading node name
-        if ((saveNode) && (chunk != '/')) {
-          node += chunk + ''
-        }
-
-        //Start of node
-        if (chunk == '<') {
-          saveNode = true
-        }
-
-      } //end of while
-      if (item.length == 0) { item = nodes[0] }
-      //console.log(item, head)
-      var xmlPreParser = xmlNodes(item)
-      xmlPreParser.write(head)
-      xmlPreParser.push(null)
-      xmlPreParser.pipe(xmlObjects({explicitRoot: false, explicitArray: false, mergeAttrs: true, ignoreAttrs: true}))
-                  .on('data',function(obj){
-                    // console.log(obj)
-                    var arr = []
-                    for (var prop in flat(obj)) {
-                      arr.push(prop)
-                    }
-                    if (columns.length < arr.length) {
-                      columns = arr.slice(0)
-                    }
-                  })
-                  .on('end', function() {
-                    rs.unshift(head)
-                    cb(columns, item)
-                  })
-    } //end of if head
-  })
-}
-
 function analyzeUrl(url, error) {
   error.message = ""
   var readed = false
@@ -461,14 +368,14 @@ function analyzeUrl(url, error) {
     app.readStream.setEncoding('utf8')
     if (url.indexOf('csv') > 0) {
       app.fileType = 'csv'
-      analyzeCsvStream(app.readStream, function(columns) {
+      getCsvStreamStructure(app.readStream, function(columns) {
         console.log(columns)
         app.columns = columns.slice(0)
         app.searchColumn = app.columns[0]
       })
     } else if (app.readStream.indexOf('xml') > 0) {
       app.fileType = 'xml'
-      analyzeXmlStream(res, function(columns, item) {
+      getXmlStreamStructure(res, function(columns, item) {
         app.columns = columns.slice(0)
         app.searchColumn = app.columns[0]
         app.item = item
@@ -492,13 +399,13 @@ function analyzeFiles(files) {
 
   //Pre-process CSV if nothing readed
   if (app.fileType == 'csv') {
-    analyzeCsvStream(app.readStream, function(columns) {
+    getCsvStreamStructure(app.readStream, function(columns) {
       app.columns = columns.slice(0)
       app.searchColumn = app.columns[0]
     })
   }
   else if (app.fileType == 'xml') {
-    analyzeXmlStream(app.readStream, function(columns, item) {
+    getXmlStreamStructure(app.readStream, function(columns, item) {
       app.columns = columns.slice(0)
       app.searchColumn = app.columns[0]
       app.item = item
