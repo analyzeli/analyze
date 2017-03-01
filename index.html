@@ -13,33 +13,30 @@
       <img src="img/loader.gif">
     </div>
     <div id="app" style="display:none">
-      <div class="choose-file" v-if="!fileSize">
+      <div class="choose-file" v-if="!analyzed">
         <md-icon class="md-size-2x md-primary">arrow_downward</md-icon>
         <h1>Drag and drop files here</h1>
         <p>or use the input field below</p>
         <md-input-container>
           <label>Local CSV or XML file</label>
-          <md-file @change.native="analyze"></md-file>
+          <md-file @change.native="analyzeFiles"></md-file>
         </md-input-container>
-        <!-- <p>or paste a link</p>
-        <md-input-container :class="{'md-input-invalid': (httpError.length > 0)}">
+        <p>or paste a link</p>
+        <md-input-container :class="{'md-input-invalid': httpError.message}">
           <label>Link to CSV or XML file</label>
-          <md-input v-model="url" @blur.native="checkUrl"></md-input>
-          <span class="md-error">{{ httpError }}</span>
-        </md-input-container> -->
+          <md-input v-model="url" @blur.native="analyzeUrl"></md-input>
+          <span class="md-error">{{ httpError.message }}</span>
+        </md-input-container>
       </div>
 
-      <div class="sidebar" v-if="fileSize">
+      <div class="sidebar" v-if="analyzed">
         <md-toolbar>
-
           <h2 class="something-like-logo" style="flex: 1">I>&nbsp;&nbsp;infodiz</h2>
-
           <md-button class="md-icon-button">
             <md-icon>more_horiz</md-icon>
           </md-button>
         </md-toolbar>
-        <!-- <span class="md-title something-like-logo">|></span> -->
-        <!-- SEARCH -->
+
         <md-card :class="{hidden: loading}">
           <md-card-expand>
             <md-card-actions>
@@ -308,9 +305,9 @@
 
       </div>
 
-      <div class="content" v-if="fileSize">
+      <div class="content" v-if="analyzed">
         <div id="loading" v-bind:style="{width: w + '%'}" v-if="loading"></div>
-        <h1 id="counter">{{ file.name }}</h1>
+        <h1 id="counter">{{ streamName }}</h1>
         <p id="processed" v-if="fileSize">Processed: <b>{{ (100*processed/fileSize).toFixed(0) }}%</b> ({{ (processed/1024).toFixed(1) }}K of {{ (fileSize/1024).toFixed(1) }}K)</p>
         <p v-if="total"> Total: {{ total }} </p>
         <md-chips v-model="searchArr" v-if="searchArr.length" class="search-chips" md-static>
