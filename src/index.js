@@ -78,6 +78,18 @@ class Stat {
   }
 }
 
+
+var csvParser = csv({
+  raw: false,     // do not decode to utf-8 strings
+  separator: ',', // specify optional cell separator
+  quote: '"',     // specify optional quote character
+  escape: '"',    // specify optional escape character (defaults to quote value)
+  newline: '\n',  // specify a newline character
+  strict: true    // require column length match headers length
+})
+
+var meter = Meter()
+
 var app = new Vue({
   el: '#app',
   data: {
@@ -195,17 +207,55 @@ var app = new Vue({
   }
 })
 
-var csvParser = csv({
-  raw: false,     // do not decode to utf-8 strings
-  separator: ',', // specify optional cell separator
-  quote: '"',     // specify optional quote character
-  escape: '"',    // specify optional escape character (defaults to quote value)
-  newline: '\n',  // specify a newline character
-  strict: true    // require column length match headers length
-})
+// 1.A Prepare stream (from URL)
+function analyzeUrl(url, error) {
+  error.message = ""
+  var readed = false
+  var request = http.get(app.url, function (res) {
+    app.readStream = res
+    app.readStream.setEncoding('utf8')
+    if (url.indexOf('csv') > 0) {
+      app.fileType = 'csv'
+    }
+    else if (app.readStream.indexOf('xml') > 0) {
+      app.fileType = 'xml'
+    }
+    getStreamStructure(app.readStream, app.fileType)
+  })
+  request.on('error', function (e) {
+    error.message = e.message
+  })
+}
 
-var meter = Meter()
+// 1.B Prepare stream (from FILE)
+function analyzeFiles(files) {
+  app.file = files[0]
+  console.log(app.file)
+  app.fileType = (app.file.type.slice(app.file.type.indexOf('/') + 1))
+  app.fileSize = app.file.size
+  app.readStream = new ReadStream(app.file)
+  app.readStream.setEncoding('utf8')
+  getStreamStructure(app.readStream, app.fileType)
+}
 
+// 2. Calculate data header/structure
+function getStreamStructure(rs, type) {
+  if (type == 'csv') {
+    getCsvStreamStructure(rs, function(columns) {
+      app.columns = columns.slice(0)
+      app.searchColumn = app.columns[0]
+    })
+  }
+  else if (type == 'xml') {
+    getXmlStreamStructure(rs, function(columns, item) {
+      app.columns = columns.slice(0)
+      app.searchColumn = app.columns[0]
+      app.item = item
+    })
+  }
+}
+
+// 3.0.1
 var filterTextStream = (function () {
   var header = true
   return filter(function(line){
@@ -234,6 +284,7 @@ var filterTextStream = (function () {
   })
 })()
 
+// 3.0.2
 var filterObjectStream = filter.obj(function(obj){
   var l = app.searchArr.length
   var found = (l == 0)
@@ -247,6 +298,7 @@ var filterObjectStream = filter.obj(function(obj){
   return found
 })
 
+// 3.0.3
 function restructureObjectStream(columns) {
   console.log('New solumns: ',columns)
   return through2.obj(function (obj, enc, callback) {
@@ -263,6 +315,7 @@ function restructureObjectStream(columns) {
    })
 }
 
+// 3. Process stream
 function load() {
   app.loading = true
   app.searchArr = (app.search.length > 0)
@@ -323,17 +376,6 @@ function load() {
         ctx.fillRect(x,y,2,2)
       }
 
-      //Process stats
-      // stats = {
-      //   "Stat1": {
-      //     input: ["FirstName"],
-      //     output: {}
-      //     process: function(obj) {
-      //       group(obj)
-      //     },
-      //   }
-      // }
-
       //Feed the object to all stat functions
       app.stats.forEach((stat)=>{
         stat.process(obj)
@@ -360,59 +402,6 @@ function load() {
     })
 }
 
-function analyzeUrl(url, error) {
-  error.message = ""
-  var readed = false
-  var request = http.get(app.url, function (res) {
-    app.readStream = res
-    app.readStream.setEncoding('utf8')
-    if (url.indexOf('csv') > 0) {
-      app.fileType = 'csv'
-      getCsvStreamStructure(app.readStream, function(columns) {
-        console.log(columns)
-        app.columns = columns.slice(0)
-        app.searchColumn = app.columns[0]
-      })
-    } else if (app.readStream.indexOf('xml') > 0) {
-      app.fileType = 'xml'
-      getXmlStreamStructure(res, function(columns, item) {
-        app.columns = columns.slice(0)
-        app.searchColumn = app.columns[0]
-        app.item = item
-      })
-    }
-  })
-  request.on('error', function (e) {
-    error.message = e.message
-  })
-}
-
-function analyzeFiles(files) {
-
-  app.file = files[0]
-  console.log(app.file)
-  app.fileType = (app.file.type.slice(app.file.type.indexOf('/') + 1))
-  app.fileSize = app.file.size
-
-  app.readStream = new ReadStream(app.file)
-  app.readStream.setEncoding('utf8')
-
-  //Pre-process CSV if nothing readed
-  if (app.fileType == 'csv') {
-    getCsvStreamStructure(app.readStream, function(columns) {
-      app.columns = columns.slice(0)
-      app.searchColumn = app.columns[0]
-    })
-  }
-  else if (app.fileType == 'xml') {
-    getXmlStreamStructure(app.readStream, function(columns, item) {
-      app.columns = columns.slice(0)
-      app.searchColumn = app.columns[0]
-      app.item = item
-    })
-  }
-}
-
 function collectionToObjects(collection) {
   var objects = []
   for (var i = 0; i < collection.length; i++ ) {
@@ -435,6 +424,7 @@ function getCollectionHeader(collection) {
   return header
 }
 
+// 4. Save results to a file
 function save(collectionName, type) {
   var objects = collectionToObjects(app.collections[collectionName])
   switch (type) {
