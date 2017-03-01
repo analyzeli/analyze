@@ -171,7 +171,7 @@ var app = new Vue({
   },
   computed: {
     streamName: function() {
-      return (this.file !== undefined) ? this.file.name : this.url
+      return (this.file !== undefined) ? this.file.name : this.url.slice(this.url.lastIndexOf('/') + 1, this.url.indexOf('csv') + 3)
     },
     analyzed: function() {
       return (this.columns && (this.columns.length > 0))
@@ -536,7 +536,7 @@ function save(collectionName, type) {
       var blob = new Blob([JSON.stringify(objects)], {type: "text/plain;charset=utf-8"})
       break
   }
-  FileSaver.saveAs(blob, app.file.name.split('.')[0] + '-' + collectionName.toLowerCase() + '.' + type)
+  FileSaver.saveAs(blob, app.streamName.split('.')[0] + '-' + collectionName.toLowerCase() + '.' + type)
 }
 
 if (window.File && window.FileReader && window.FileList && window.Blob) {
