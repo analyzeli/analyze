@@ -406,7 +406,7 @@ function collectionToObjects(collection) {
   var objects = []
   for (var i = 0; i < collection.length; i++ ) {
     var object = {}
-    for (column in collection.records) {
+    for (var column in collection.records) {
       if (collection.records[column][i] != undefined) {
         object[column] = collection.records[column][i]
       }
@@ -418,7 +418,7 @@ function collectionToObjects(collection) {
 
 function getCollectionHeader(collection) {
   var header = []
-  for (column in collection.records) {
+  for (var column in collection.records) {
     header.push(column)
   }
   return header
