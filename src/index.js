@@ -11,6 +11,8 @@ const FileSaver = require('file-saver')
 const xmlNodes = require('xml-nodes')
 const xmlObjects = require('xml-objects')
 const http = require('stream-http') //XHR as a stream
+const getCsvStreamStructure = require('./get-csv-stream-structure.js') //Get CSV header
+const getXmlStreamStructure = require('./get-xml-stream-structure.js') //Get XML nodes and repeated node
   //Objects
 const flat = require('flat')
 const path = require('object-path') //Acess nested object properties with a variable
@@ -76,13 +78,21 @@ class Stat {
   }
 }
 
+
+var csvParser = csv({
+  raw: false,     // do not decode to utf-8 strings
+  separator: ',', // specify optional cell separator
+  quote: '"',     // specify optional quote character
+  escape: '"',    // specify optional escape character (defaults to quote value)
+  newline: '\n',  // specify a newline character
+  strict: true    // require column length match headers length
+})
+
+var meter = Meter()
+
 var app = new Vue({
   el: '#app',
   data: {
-    chartData: {
-            labels: ["A", "B", "C"],
-            series:[[1, 3, 2]]
-    },
     chartOptions: {
             lineSmooth: false
     },
@@ -107,13 +117,16 @@ var app = new Vue({
         name: 'Main'
       }
     },
+    readStream: undefined,
     url: undefined,
-    httpError: '',
+    httpError: {
+      message: ''
+    },
     file: undefined,
     fileSize: 0,
     loading: false,
     w: 0,
-    statTypes: ['Group','Median'],
+    statTypes: ['Group'],
     stats: [],
     chartTypes: ['Bar', 'Line', 'Pie'],
     charts: [],
@@ -148,8 +161,8 @@ var app = new Vue({
   methods: {
     load: load,
     save: save,
-    analyze: function(event) {
-      analyze(event.target.files)
+    analyzeFiles: function(event) {
+      analyzeFiles(event.target.files)
     },
     test: function () {
       alert('ping')
@@ -166,30 +179,20 @@ var app = new Vue({
     removeChart: function(index) {
       this.charts.splice(index,1)
     },
-    checkUrl: function() {
-      var readed = false
-      var request = http.get(app.url, function (res) {
-          res.on('readable', function () {
-              if (!readed) {
-                var r = res.read(5)
-                readed = true
-              console.log('1',r+'')
-              res.unshift(r)
-              r = res.read(5)
-              console.log('2',r+'')
-              console.log('BREAK')
-            }
-              // analyze(res)
-          });
-          res.on('end', function () {
-          });
-      })
-      request.on('error', function (e) {
-        app.httpError = e.message
-      })
+    analyzeUrl: function() {
+      analyzeUrl(this.url, this.httpError)
     }
   },
   computed: {
+    streamName: function() {
+      return (this.file !== undefined) ? this.file.name : this.url.slice(this.url.lastIndexOf('/') + 1, this.url.indexOf('csv') + 3)
+    },
+    streamInfo: function() {
+      return (this.file !== undefined) ? 'Last modified: ' + this.file.lastModifiedDate.toLocaleDateString("en-US") : this.url
+    },
+    analyzed: function() {
+      return (this.columns && (this.columns.length > 0))
+    },
     selectedColumns: function() {
       return (this.structure.showAll) ? this.columns : this.structure.newColumns
     }
@@ -204,17 +207,55 @@ var app = new Vue({
   }
 })
 
-var csvParser = csv({
-  raw: false,     // do not decode to utf-8 strings
-  separator: ',', // specify optional cell separator
-  quote: '"',     // specify optional quote character
-  escape: '"',    // specify optional escape character (defaults to quote value)
-  newline: '\n',  // specify a newline character
-  strict: true    // require column length match headers length
-})
+// 1.A Prepare stream (from URL)
+function analyzeUrl(url, error) {
+  error.message = ""
+  var readed = false
+  var request = http.get(app.url, function (res) {
+    app.readStream = res
+    app.readStream.setEncoding('utf8')
+    if (url.indexOf('csv') > 0) {
+      app.fileType = 'csv'
+    }
+    else if (app.readStream.indexOf('xml') > 0) {
+      app.fileType = 'xml'
+    }
+    getStreamStructure(app.readStream, app.fileType)
+  })
+  request.on('error', function (e) {
+    error.message = e.message
+  })
+}
 
-var meter = Meter()
+// 1.B Prepare stream (from FILE)
+function analyzeFiles(files) {
+  app.file = files[0]
+  console.log(app.file)
+  app.fileType = (app.file.type.slice(app.file.type.indexOf('/') + 1))
+  app.fileSize = app.file.size
+  app.readStream = new ReadStream(app.file)
+  app.readStream.setEncoding('utf8')
+  getStreamStructure(app.readStream, app.fileType)
+}
 
+// 2. Calculate data header/structure
+function getStreamStructure(rs, type) {
+  if (type == 'csv') {
+    getCsvStreamStructure(rs, function(columns) {
+      app.columns = columns.slice(0)
+      app.searchColumn = app.columns[0]
+    })
+  }
+  else if (type == 'xml') {
+    getXmlStreamStructure(rs, function(columns, item) {
+      app.columns = columns.slice(0)
+      app.searchColumn = app.columns[0]
+      app.item = item
+    })
+  }
+}
+
+// 3.0.1
 var filterTextStream = (function () {
   var header = true
   return filter(function(line){
@@ -231,7 +272,7 @@ var filterTextStream = (function () {
     }
 
     if ((header) && (app.fileType == 'csv')) {
-      console.log(line+'')
+      console.log('Header: ',line+'')
       header = false
       return true
     }
@@ -243,6 +284,7 @@ var filterTextStream = (function () {
   })
 })()
 
+// 3.0.2
 var filterObjectStream = filter.obj(function(obj){
   var l = app.searchArr.length
   var found = (l == 0)
@@ -256,6 +298,7 @@ var filterObjectStream = filter.obj(function(obj){
   return found
 })
 
+// 3.0.3
 function restructureObjectStream(columns) {
   console.log('New solumns: ',columns)
   return through2.obj(function (obj, enc, callback) {
@@ -272,6 +315,7 @@ function restructureObjectStream(columns) {
    })
 }
 
+// 3. Process stream
 function load() {
   app.loading = true
   app.searchArr = (app.search.length > 0)
@@ -285,9 +329,11 @@ function load() {
     ctx.fillRect(0,0,app.plotStream.xSize,app.plotStream.ySize)
   }
 
-  var rs = new ReadStream(app.file, {
-    chunkSize: 1024*100
-  })
+  // var rs = new ReadStream(app.file, {
+  //   chunkSize: 1024*100
+  // })
+  var rs = app.readStream
+  console.log('read stream: ', rs)
   rs.setEncoding('utf8')
 
   rs = rs.pipe(meter) //Count all bytes
@@ -330,17 +376,6 @@ function load() {
         ctx.fillRect(x,y,2,2)
       }
 
-      //Process stats
-      // stats = {
-      //   "Stat1": {
-      //     input: ["FirstName"],
-      //     output: {}
-      //     process: function(obj) {
-      //       group(obj)
-      //     },
-      //   }
-      // }
-
       //Feed the object to all stat functions
       app.stats.forEach((stat)=>{
         stat.process(obj)
@@ -367,125 +402,11 @@ function load() {
     })
 }
 
-function analyzeCSV(stream, cb) {
-  var head = '' //some bytes of the file
-  stream.on('readable', function() {
-    if (head.length == 0) {
-      var chunk = ''
-      while ('\n' != (chunk = stream.read(1))) {
-        head += chunk
-      }
-      cb(lineParser(head)[0])
-    }
-  })
-}
-
-function analyzeXML(stream, cb) {
-  var head = ''
-  stream.on('readable', function() {
-    if (head.length == 0) {
-    //Pre-process XML
-      var itemsReaded = 0
-      var node = ''
-      var item = ''
-      var nodes = []
-      var columns = []
-      var saveNode = false
-      var chunk = ''
-      while ((itemsReaded < 10) && (null != (chunk = stream.read(1)))) {
-        head += chunk
-        //Adding node
-        if ((saveNode) && ((chunk == '>') || (chunk == ' '))) {
-          saveNode = false
-
-          item = ''
-          itemsReaded = 0
-          nodes.push(node)
-
-          for (var i = 0; i < nodes.length - 1; i++) {
-            if ((nodes.indexOf(nodes[i],i+1) > 0) && (item.length == 0)) {
-              item = nodes[i]
-              itemsReaded = 2
-              //console.log(nodes)
-            }
-            else if ((item.length > 0) && (nodes[i] == item)) {
-              itemsReaded += 1
-            }
-          }
-          //console.log(node,item,itemsReaded)
-          node = ''
-        }
-
-        //End of node name
-        if ((saveNode) && ((chunk == '/') || (chunk == '?'))) {
-          saveNode = false
-        }
-
-        //Reading node name
-        if ((saveNode) && (chunk != '/')) {
-          node += chunk + ''
-        }
-
-        //Start of node
-        if (chunk == '<') {
-          saveNode = true
-        }
-
-      } //end of while
-      if (item.length == 0) { item = nodes[0] }
-      //console.log(item, head)
-      var xmlPreParser = xmlNodes(item)
-      xmlPreParser.write(head)
-      xmlPreParser.push(null)
-      xmlPreParser.pipe(xmlObjects({explicitRoot: false, explicitArray: false, mergeAttrs: true, ignoreAttrs: true}))
-                  .on('data',function(obj){
-                    // console.log(obj)
-                    var arr = []
-                    for (var prop in flat(obj)) {
-                      arr.push(prop)
-                    }
-                    if (columns.length < arr.length) {
-                      columns = arr.slice(0)
-                    }
-                  })
-                  .on('end', function() {
-                    cb(columns, item)
-                  })
-    } //end of if head
-  })
-}
-
-function analyze(files) {
-
-  app.file = files[0]
-  console.log(app.file)
-  app.fileType = (app.file.type.slice(app.file.type.indexOf('/') + 1))
-  app.fileSize = app.file.size
-
-  var rs = new ReadStream(app.file)
-  rs.setEncoding('utf8')
-
-  //Pre-process CSV if nothing readed
-  if (app.fileType == 'csv') {
-    analyzeCSV(rs, function(columns) {
-      app.columns = columns.slice(0)
-      app.searchColumn = app.columns[0]
-    })
-  }
-  else if (app.fileType == 'xml') {
-    analyzeXML(rs, function(columns, item) {
-      app.columns = columns.slice(0)
-      app.searchColumn = app.columns[0]
-      app.item = item
-    })
-  }
-}
-
 function collectionToObjects(collection) {
   var objects = []
   for (var i = 0; i < collection.length; i++ ) {
     var object = {}
-    for (column in collection.records) {
+    for (var column in collection.records) {
       if (collection.records[column][i] != undefined) {
         object[column] = collection.records[column][i]
       }
@@ -497,12 +418,13 @@ function collectionToObjects(collection) {
 
 function getCollectionHeader(collection) {
   var header = []
-  for (column in collection.records) {
+  for (var column in collection.records) {
     header.push(column)
   }
   return header
 }
 
+// 4. Save results to a file
 function save(collectionName, type) {
   var objects = collectionToObjects(app.collections[collectionName])
   switch (type) {
@@ -514,11 +436,12 @@ function save(collectionName, type) {
       var blob = new Blob([JSON.stringify(objects)], {type: "text/plain;charset=utf-8"})
       break
   }
-  FileSaver.saveAs(blob, app.file.name.split('.')[0] + '-' + collectionName.toLowerCase() + '.' + type)
+  FileSaver.saveAs(blob, app.streamName.split('.')[0] + '-' + collectionName.toLowerCase() + '.' + type)
 }
 
+// Init drag and drop or throw error
 if (window.File && window.FileReader && window.FileList && window.Blob) {
-  dnd(document.body, analyze)
+  dnd(document.body, analyzeFiles)
 } else {
   alert("Your browser doesn't support File API");
 }
