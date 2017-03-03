@@ -25,9 +25,10 @@ const Vue = require('vue')
 const VueMaterial = require('vue-material')
 const Chartist = require('vue-chartist')
 const dnd = require('drag-and-drop-files') //Handle Drag and Drop events
-// const chart = require('chart.js')
+//Other
+const queryString = require('query-string')
 
-window.onload = function(e){
+function showApp() {
   document.getElementById('app-loader').style.display = 'none'
   document.getElementById('app').style.removeProperty('display')
 }
@@ -223,6 +224,7 @@ function analyzeUrl(url, error) {
     getStreamStructure(app.readStream, app.fileType)
   })
   request.on('error', function (e) {
+    showApp()
     error.message = e.message
   })
 }
@@ -242,17 +244,27 @@ function analyzeFiles(files) {
 function getStreamStructure(rs, type) {
   if (type == 'csv') {
     getCsvStreamStructure(rs, function(columns) {
-      app.columns = columns.slice(0)
-      app.searchColumn = app.columns[0]
+      processStreamStructure(columns, '')
     })
   }
   else if (type == 'xml') {
     getXmlStreamStructure(rs, function(columns, item) {
-      app.columns = columns.slice(0)
-      app.searchColumn = app.columns[0]
-      app.item = item
+      processStreamStructure(columns, item)
     })
   }
+}
+
+// 2.1 Store data structure, trigger loader if needed
+function processStreamStructure (columns, item) {
+  app.columns = columns.slice(0)
+  app.searchColumn = app.columns[0]
+  app.item = item
+  if (query && query.run) {
+    setTimeout(function(){
+      load()
+    }, 50);
+  }
+  showApp()
 }
 
 // 3.0.1
@@ -367,7 +379,6 @@ function load() {
 //
   rs.on('data', function(obj) {
     //Here rs throws parsed, filtered, not flat objects
-
       //Plot stream
       if (app.plotStream.display) {
         ctx.fillStyle = '#000'
@@ -397,7 +408,6 @@ function load() {
     })
 
     .on('end', function(){
-      console.log(app.collections.main)
       app.loading = false
     })
 }
@@ -441,6 +451,17 @@ function save(collectionName, type) {
 
 // Init drag and drop or throw error
 if (window.File && window.FileReader && window.FileList && window.Blob) {
+  if (location.search) {
+    var query = queryString.parse(location.search)
+    if (query.url) {
+      app.url = query.url
+      analyzeUrl(query.url, app.httpError)
+    }
+  } else {
+    showApp()
+  }
+  // query.url = 'https://raw.githubusercontent.com/gurjit03/react-charts-test-app/e649997b704c916fd7fd0926009caf90c1c73b90/project%20(another%20copy).csv'
+  // console.log(location.origin + location.pathname + '?' + queryString.stringify(query))
   dnd(document.body, analyzeFiles)
 } else {
   alert("Your browser doesn't support File API");
