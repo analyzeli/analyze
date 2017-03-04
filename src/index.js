@@ -105,6 +105,10 @@ var querify = new Querify (['run','url','search','searchColumn','strictSearch','
 var app = new Vue({
   el: '#app',
   data: {
+    notifyMessage: '',
+    vertical: 'bottom',
+    horizontal: 'center',
+    duration: 4000,
     chartOptions: {
             lineSmooth: false
     },
@@ -173,6 +177,17 @@ var app = new Vue({
   methods: {
     load: load,
     save: save,
+    notify: function(message) {
+      this.notifyMessage = message
+      this.$refs.snackbar.open();
+    },
+    generateLink: function() {
+      var copyLink = document.querySelector('#query')
+      copyLink.select()
+      var successful = document.execCommand('copy')
+      var msg = successful ? 'Copied to the clipboard' : 'Error happened'
+      app.notify(msg);
+    },
     analyzeFiles: function(event) {
       analyzeFiles(event.target.files)
     },
@@ -248,29 +263,30 @@ var app = new Vue({
 
 // 1.A Prepare stream (from URL)
 function analyzeUrl(url, error) {
-  error.message = ""
-  var readed = false
-  var request = http.get(app.url, function (res) {
-    app.readStream = res
-    app.readStream.setEncoding('utf8')
-    if (url.indexOf('csv') > 0) {
-      app.fileType = 'csv'
-    }
-    else if (app.readStream.indexOf('xml') > 0) {
-      app.fileType = 'xml'
-    }
-    getStreamStructure(app.readStream, app.fileType)
-  })
-  request.on('error', function (e) {
-    showApp()
-    error.message = e.message
-  })
+  if (app.url && app.url.length) {
+    error.message = ""
+    var readed = false
+    var request = http.get(app.url, function (res) {
+      app.readStream = res
+      app.readStream.setEncoding('utf8')
+      if (url.indexOf('csv') > 0) {
+        app.fileType = 'csv'
+      }
+      else if (app.readStream.indexOf('xml') > 0) {
+        app.fileType = 'xml'
+      }
+      getStreamStructure(app.readStream, app.fileType)
+    })
+    request.on('error', function (e) {
+      showApp()
+      error.message = e.message
+    })
+  }
 }
 
 // 1.B Prepare stream (from FILE)
 function analyzeFiles(files) {
   app.file = files[0]
-  console.log(app.file)
   app.fileType = (app.file.type.slice(app.file.type.indexOf('/') + 1))
   app.fileSize = app.file.size
   app.readStream = new ReadStream(app.file)
@@ -321,7 +337,6 @@ var filterTextStream = (function () {
     }
 
     if ((header) && (app.fileType == 'csv')) {
-      console.log('Header: ',line+'')
       header = false
       return true
     }
@@ -348,7 +363,6 @@ var filterObjectStream = filter.obj(function(obj){
 
 // 3.0.3
 function restructureObjectStream(columns) {
-  console.log('New solumns: ',columns)
   return through2.obj(function (obj, enc, callback) {
     if (columns.length > 0) {
       var structuredObj = {}
@@ -378,7 +392,6 @@ function load() {
   }
 
   var rs = app.readStream
-  console.log('read stream: ', rs)
   rs.setEncoding('utf8')
 
   rs = rs.pipe(meter) //Count all bytes
@@ -441,6 +454,7 @@ function load() {
     })
 
     .on('end', function(){
+      app.notify('All data loaded')
       app.loading = false
     })
 }
@@ -488,9 +502,7 @@ if (window.File && window.FileReader && window.FileList && window.Blob) {
     var queryObj = querify.getQueryObject(location.search)
     Vue.nextTick(function(){
       app = Object.assign(app, queryObj)
-      if (app.url && app.url.length) {
-        analyzeUrl(app.url, app.httpError)
-      }
+      analyzeUrl(app.url, app.httpError)
     })
   } else {
     showApp()

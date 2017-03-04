@@ -309,10 +309,13 @@
       </div>
 
       <div class="content" v-if="analyzed">
+        <md-button v-if="url.length" class="md-fab md-primary md-fab-top-right" id="fab" @click.native="generateLink()">
+          <md-icon>share</md-icon>
+          <md-tooltip md-direction="bottom">Generate link</md-tooltip>
+        </md-button>
         <div id="loading" v-bind:style="{width: w + '%'}" v-if="loading"></div>
         <h1 id="counter">{{ streamName }}</h1>
         <span class="md-caption">{{ streamInfo }}</span>
-        <a :href="newQuery">{{ newQuery }}</a>
         <p id="processed" v-if="fileSize">Processed: <b>{{ (100*processed/fileSize).toFixed(0) }}%</b> ({{ (processed/1024).toFixed(1) }}K of {{ (fileSize/1024).toFixed(1) }}K)</p>
         <p v-if="total"> Total: {{ total }} </p>
         <md-chips v-model="searchArr" v-if="searchArr.length" class="search-chips" md-static>
@@ -368,8 +371,12 @@
         </div>
         <p id="size"></p>
         <p id="text"></p>
+        <textarea id="query" v-if="url.length" rows="5">{{ newQuery }} </textarea>
       </div>
-
+      <md-snackbar md-position="bottom center" ref="snackbar" md-duration="3000">
+        <span>{{ notifyMessage }}</span>
+        <md-button class="md-accent" md-theme="light-blue" @click.native="$refs.snackbar.close()">Retry</md-button>
+      </md-snackbar>
     </div>
     <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Roboto:300,400,500,700,400italic">
     <link rel="stylesheet" href="http://fonts.googleapis.com/icon?family=Material+Icons">

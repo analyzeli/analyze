@@ -7,8 +7,6 @@ const is = require('is')
 
 module.exports = Querify
 
-console.log(queryString.parse('?run=true'))
-
 function Querify(keys) {
   if (!(this instanceof Querify)) return new Querify()
   this.keys = keys
@@ -34,7 +32,6 @@ Querify.prototype.getQueryString = function(obj) {
 Querify.prototype.getQueryObject = function(str) {
   var parsedObj = queryString.parse(str, {arrayFormat: 'index'})
   var queryObj = {}
-  console.log(this.keys, str, parsedObj)
   this.keys.forEach((key) => {
     var val = parsedObj[key]
     if (is.string(val)) {
@@ -49,27 +46,5 @@ Querify.prototype.getQueryObject = function(str) {
       queryObj[key] = val.map((el) => escape(el))
     }
   })
-    // if (simpleQuery.indexOf(key) >= 0) {
-    //   switch (typeof app[key]) {
-    //     case 'string':
-    //       app[key] = escape(query[key])
-    //       break
-    //     case 'number':
-    //       app[key] = query[key]
-    //       break
-    //     case 'object':
-    //       for (var i in query[key]) {
-    //         app[key] = escape(query[key])
-    //       }
-    //       break
-    //     case 'boolean':
-    //       app[key] = (query[key].toLowerCase() == 'true')
-    //       break
-    //   }
-    // }
-    // else {
-    //   app[key] = JSON.parse(query[key])
-    // }
-  console.log(queryObj)
   return queryObj
 }
