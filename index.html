@@ -310,6 +310,7 @@
         <div id="loading" v-bind:style="{width: w + '%'}" v-if="loading"></div>
         <h1 id="counter">{{ streamName }}</h1>
         <span class="md-caption">{{ streamInfo }}</span>
+        <a :href="newQuery">{{ newQuery }}</a>
         <p id="processed" v-if="fileSize">Processed: <b>{{ (100*processed/fileSize).toFixed(0) }}%</b> ({{ (processed/1024).toFixed(1) }}K of {{ (fileSize/1024).toFixed(1) }}K)</p>
         <p v-if="total"> Total: {{ total }} </p>
         <md-chips v-model="searchArr" v-if="searchArr.length" class="search-chips" md-static>

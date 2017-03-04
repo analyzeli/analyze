@@ -18,6 +18,7 @@ const flat = require('flat')
 const path = require('object-path') //Acess nested object properties with a variable
 const saveToCollection = require('./save-to-collection.js')
 const json2csv = require('json2csv') //Convert array of objects to CSV
+const escape = require('html-escape') //Sanitize url
   //Stats
 const group = require('./group.js') //Group by a properties
   //Vis
@@ -79,7 +80,6 @@ class Stat {
   }
 }
 
-
 var csvParser = csv({
   raw: false,     // do not decode to utf-8 strings
   separator: ',', // specify optional cell separator
@@ -90,6 +90,9 @@ var csvParser = csv({
 })
 
 var meter = Meter()
+
+var simpleQuery = ['url','search','searchColumn','strictSearch']
+var complexQuery = ['structure', 'charts']
 
 var app = new Vue({
   el: '#app',
@@ -119,7 +122,7 @@ var app = new Vue({
       }
     },
     readStream: undefined,
-    url: undefined,
+    url: '',
     httpError: {
       message: ''
     },
@@ -196,6 +199,26 @@ var app = new Vue({
     },
     selectedColumns: function() {
       return (this.structure.showAll) ? this.columns : this.structure.newColumns
+    },
+    newQuery: function() {
+      if (app.url.length > 0) {
+        var query = location.origin + location.pathname
+        var queryObj = {run: true}
+        simpleQuery.forEach((key)=>{
+          if (app[key]) {
+            queryObj[key] = app[key]
+          }
+        })
+        complexQuery.forEach((key)=>{
+          if (app[key]) {
+            queryObj[key] = JSON.stringify(app[key])
+          }
+        })
+        // query.url = app.url
+        // queryObj.appSearch = (app.search) ? app.search : undefined
+        query += '?' + queryString.stringify(queryObj)
+        return query
+      }
     }
   },
   watch: {
@@ -257,12 +280,12 @@ function getStreamStructure(rs, type) {
 // 2.1 Store data structure, trigger loader if needed
 function processStreamStructure (columns, item) {
   app.columns = columns.slice(0)
-  app.searchColumn = app.columns[0]
+  if (app.searchColumn.length == 0) app.searchColumn = app.columns[0]
   app.item = item
   if (query && query.run) {
-    setTimeout(function(){
+    Vue.nextTick(function(){
       load()
-    }, 50);
+    })
   }
   showApp()
 }
@@ -451,18 +474,51 @@ function save(collectionName, type) {
 
 // Init drag and drop or throw error
 if (window.File && window.FileReader && window.FileList && window.Blob) {
+  // var a = queryString.parse(queryString.stringify(
+  //   {
+  //     a:1,
+  //     b: 'sadsdd',
+  //     c: [1,2,3,4],
+  //     d: JSON.stringify({d1: 'ping', d2: 'pong'})
+  //   }
+  // ))
+  // console.log(a.c, JSON.parse(a.d))
   if (location.search) {
-    var query = queryString.parse(location.search)
-    if (query.url) {
-      app.url = query.url
-      analyzeUrl(query.url, app.httpError)
-    }
+    var query = queryString.parse(location.search, {arrayFormat: 'index'})
+    Vue.nextTick(function(){
+      for (var key in query) {
+        if (simpleQuery.indexOf(key) >= 0) {
+          switch (typeof app[key]) {
+            case 'string':
+              app[key] = escape(query[key])
+              break
+            case 'number':
+              app[key] = query[key]
+              break
+            case 'object':
+              for (var i in query[key]) {
+                app[key] = escape(query[key])
+              }
+              break
+            case 'boolean':
+              app[key] = (query[key].toLowerCase() == 'true')
+              break
+          }
+          // app[key] = query[key]
+        }
+        else {
+          console.log(key,query[key])
+          app[key] = JSON.parse(query[key])
+        }
+      }
+      if (query.url) {
+        analyzeUrl(query.url, app.httpError)
+      }
+    })
   } else {
     showApp()
+    dnd(document.body, analyzeFiles)
   }
-  // query.url = 'https://raw.githubusercontent.com/gurjit03/react-charts-test-app/e649997b704c916fd7fd0926009caf90c1c73b90/project%20(another%20copy).csv'
-  // console.log(location.origin + location.pathname + '?' + queryString.stringify(query))
-  dnd(document.body, analyzeFiles)
 } else {
   alert("Your browser doesn't support File API");
 }
