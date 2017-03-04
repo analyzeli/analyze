@@ -28,6 +28,7 @@ const Chartist = require('vue-chartist')
 const dnd = require('drag-and-drop-files') //Handle Drag and Drop events
 //Other
 const queryString = require('query-string')
+const Querify = require('./querify.js')
 
 function showApp() {
   document.getElementById('app-loader').style.display = 'none'
@@ -93,6 +94,13 @@ var meter = Meter()
 
 var simpleQuery = ['url','search','searchColumn','strictSearch']
 var complexQuery = ['structure', 'charts']
+
+var querify = new Querify (['run','url','search','searchColumn','strictSearch','structure','charts'])
+//
+// var querify = new Querify ({
+//   simple: ['run','url','search','searchColumn','strictSearch'],
+//   complex: ['structure', 'charts']
+// })
 
 var app = new Vue({
   el: '#app',
@@ -202,20 +210,29 @@ var app = new Vue({
     },
     newQuery: function() {
       if (app.url.length > 0) {
-        var query = location.origin + location.pathname
-        var queryObj = {run: true}
-        simpleQuery.forEach((key)=>{
-          if (app[key]) {
-            queryObj[key] = app[key]
-          }
+        // var query = location.origin + location.pathname
+        // var queryObj = {run: true}
+        // simpleQuery.forEach((key)=>{
+        //   if (app[key]) {
+        //     queryObj[key] = app[key]
+        //   }
+        // })
+        // complexQuery.forEach((key)=>{
+        //   if (app[key]) {
+        //     queryObj[key] = JSON.stringify(app[key])
+        //   }
+        // })
+        // query += '?' + queryString.stringify(queryObj)
+        // return query
+        return location.origin + location.pathname + querify.getQueryString({
+          run: 'true',
+          url: app.url,
+          search: app.search,
+          searchColumn: app.searchColumn,
+          strictSearch: app.strictSearch,
+          structure: app.structure,
+          charts: app.charts
         })
-        complexQuery.forEach((key)=>{
-          if (app[key]) {
-            queryObj[key] = JSON.stringify(app[key])
-          }
-        })
-        query += '?' + queryString.stringify(queryObj)
-        return query
       }
     }
   },
@@ -280,7 +297,7 @@ function processStreamStructure (columns, item) {
   app.columns = columns.slice(0)
   if (app.searchColumn.length == 0) app.searchColumn = app.columns[0]
   app.item = item
-  if (query && query.run) {
+  if (app.url && app.url.length && app.run) {
     Vue.nextTick(function(){
       load()
     })
@@ -468,34 +485,11 @@ function save(collectionName, type) {
 // Init drag and drop or throw error
 if (window.File && window.FileReader && window.FileList && window.Blob) {
   if (location.search) {
-    var query = queryString.parse(location.search, {arrayFormat: 'index'})
+    var queryObj = querify.getQueryObject(location.search)
     Vue.nextTick(function(){
-      for (var key in query) {
-        if (simpleQuery.indexOf(key) >= 0) {
-          switch (typeof app[key]) {
-            case 'string':
-              app[key] = escape(query[key])
-              break
-            case 'number':
-              app[key] = query[key]
-              break
-            case 'object':
-              for (var i in query[key]) {
-                app[key] = escape(query[key])
-              }
-              break
-            case 'boolean':
-              app[key] = (query[key].toLowerCase() == 'true')
-              break
-          }
-        }
-        else {
-          console.log(key,query[key])
-          app[key] = JSON.parse(query[key])
-        }
-      }
-      if (query.url) {
-        analyzeUrl(query.url, app.httpError)
+      app = Object.assign(app, queryObj)
+      if (app.url && app.url.length) {
+        analyzeUrl(app.url, app.httpError)
       }
     })
   } else {
