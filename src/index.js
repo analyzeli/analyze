@@ -214,8 +214,6 @@ var app = new Vue({
             queryObj[key] = JSON.stringify(app[key])
           }
         })
-        // query.url = app.url
-        // queryObj.appSearch = (app.search) ? app.search : undefined
         query += '?' + queryString.stringify(queryObj)
         return query
       }
@@ -301,7 +299,6 @@ var filterTextStream = (function () {
     // Progress
     var byteStep = (app.fileSize > 10000000) ? 1000000 : 10000
     if ((meter.bytes - app.processed) > byteStep) {
-//    console.log(meter.bytes)
       app.processed = meter.bytes
       app.w = ((app.processed / app.fileSize) * 100).toFixed(1)
     }
@@ -329,7 +326,6 @@ var filterObjectStream = filter.obj(function(obj){
    found = found || ((app.strictSearch == true) && (value == app.searchArr[i])) || ((app.strictSearch == false) && (value.indexOf(app.searchArr[i]) >= 0))
    i+=1
   }
-  // console.log(app.searchColumn + ': ' + value + '(' +found+')')
   return found
 })
 
@@ -364,9 +360,6 @@ function load() {
     ctx.fillRect(0,0,app.plotStream.xSize,app.plotStream.ySize)
   }
 
-  // var rs = new ReadStream(app.file, {
-  //   chunkSize: 1024*100
-  // })
   var rs = app.readStream
   console.log('read stream: ', rs)
   rs.setEncoding('utf8')
@@ -474,15 +467,6 @@ function save(collectionName, type) {
 
 // Init drag and drop or throw error
 if (window.File && window.FileReader && window.FileList && window.Blob) {
-  // var a = queryString.parse(queryString.stringify(
-  //   {
-  //     a:1,
-  //     b: 'sadsdd',
-  //     c: [1,2,3,4],
-  //     d: JSON.stringify({d1: 'ping', d2: 'pong'})
-  //   }
-  // ))
-  // console.log(a.c, JSON.parse(a.d))
   if (location.search) {
     var query = queryString.parse(location.search, {arrayFormat: 'index'})
     Vue.nextTick(function(){
@@ -504,7 +488,6 @@ if (window.File && window.FileReader && window.FileList && window.Blob) {
               app[key] = (query[key].toLowerCase() == 'true')
               break
           }
-          // app[key] = query[key]
         }
         else {
           console.log(key,query[key])
