@@ -27,7 +27,7 @@
         <md-input-container :class="{'md-input-invalid': httpError.message}">
           <label>Link to CSV or XML file</label>
           <md-input v-model="url" @blur.native="analyzeUrl"></md-input>
-          <md-icon>link</md-icon>
+          <md-icon style="cursor: pointer;">link</md-icon>
           <span class="md-error">{{ httpError.message }}</span>
         </md-input-container>
       </div>
