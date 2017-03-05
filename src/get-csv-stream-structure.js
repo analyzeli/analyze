@@ -1,7 +1,25 @@
 const lineParser = require('csv-parse/lib/sync')
 
+function count(substr, str) {
+  return (str.match(new RegExp(substr,"g")) || []).length
+}
+
+function findDelimiter(delimiters, str) {
+  var delimiter = ','
+  var counter = 0
+  delimiters.forEach((d) => {
+    var c = count(d, str)
+    if (c > counter) {
+      counter = c
+      delimiter = d
+    }
+  })
+  return delimiter
+}
+
 function getCsvStreamStructure(rs, cb) {
   var head = '' //some bytes of the file
+  var delimiters = [',','\t',';']
   rs.on('readable', function() {
     if (head.length == 0) {
       var isFirstLine = true
@@ -13,7 +31,8 @@ function getCsvStreamStructure(rs, cb) {
         }
       }
       rs.unshift(head) //throw back the readed chunk to the buffer.
-      cb(lineParser(head.slice(0, -1))[0])
+      var delimiter = findDelimiter(delimiters, head)
+      cb(lineParser(head.slice(0, -1), {delimiter: delimiter})[0], delimiter)
     }
   })
 }

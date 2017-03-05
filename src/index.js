@@ -81,26 +81,9 @@ class Stat {
   }
 }
 
-var csvParser = csv({
-  raw: false,     // do not decode to utf-8 strings
-  separator: ',', // specify optional cell separator
-  quote: '"',     // specify optional quote character
-  escape: '"',    // specify optional escape character (defaults to quote value)
-  newline: '\n',  // specify a newline character
-  strict: true    // require column length match headers length
-})
-
 var meter = Meter()
 
-var simpleQuery = ['url','search','searchColumn','strictSearch']
-var complexQuery = ['structure', 'charts']
-
 var querify = new Querify (['run','url','search','searchColumn','strictSearch','structure','charts'])
-//
-// var querify = new Querify ({
-//   simple: ['run','url','search','searchColumn','strictSearch'],
-//   complex: ['structure', 'charts']
-// })
 
 var app = new Vue({
   el: '#app',
@@ -114,6 +97,7 @@ var app = new Vue({
     },
     columns: [],
     item: '', //iterative xml node
+    delimiter: ',',
     search: '',
     searchArr: [],
     searchColumn: '',
@@ -212,10 +196,10 @@ var app = new Vue({
   },
   computed: {
     streamName: function() {
-      return (this.file !== undefined) ? this.file.name : this.url.slice(this.url.lastIndexOf('/') + 1, this.url.indexOf('csv') + 3)
+      return (this.file !== undefined) ? this.file.name : this.url.slice(this.url.lastIndexOf('/') + 1, this.url.search(/tsv|csv/g) + 3)
     },
     streamInfo: function() {
-      return (this.file !== undefined) ? 'Last modified: ' + this.file.lastModifiedDate.toLocaleDateString("en-US") : this.url
+      return (this.file !== undefined) ? 'Last modified: ' + this.file.lastModifiedDate.toLocaleDateString("en-US") : 'Source: ' + this.url
     },
     analyzed: function() {
       return (this.columns && (this.columns.length > 0))
@@ -297,22 +281,23 @@ function analyzeFiles(files) {
 // 2. Calculate data header/structure
 function getStreamStructure(rs, type) {
   if (type == 'csv') {
-    getCsvStreamStructure(rs, function(columns) {
-      processStreamStructure(columns, '')
+    getCsvStreamStructure(rs, function(columns, delimiter) {
+      app.delimiter = delimiter
+      processStreamStructure(columns)
     })
   }
   else if (type == 'xml') {
     getXmlStreamStructure(rs, function(columns, item) {
-      processStreamStructure(columns, item)
+      app.item = item
+      processStreamStructure(columns)
     })
   }
 }
 
 // 2.1 Store data structure, trigger loader if needed
-function processStreamStructure (columns, item) {
+function processStreamStructure (columns) {
   app.columns = columns.slice(0)
   if (app.searchColumn.length == 0) app.searchColumn = app.columns[0]
-  app.item = item
   if (app.url && app.url.length && app.run) {
     Vue.nextTick(function(){
       load()
@@ -391,6 +376,7 @@ function load() {
     ctx.fillRect(0,0,app.plotStream.xSize,app.plotStream.ySize)
   }
 
+  var csvParser
   var rs = app.readStream
   rs.setEncoding('utf8')
 
@@ -398,6 +384,14 @@ function load() {
 
   //CSV Stream
   if (app.fileType == 'csv') {
+    csvParser = csv({
+      raw: false,     // do not decode to utf-8 strings
+      separator: app.delimiter, // specify optional cell separator
+      quote: '"',     // specify optional quote character
+      escape: '"',    // specify optional escape character (defaults to quote value)
+      newline: '\n',  // specify a newline character
+      strict: true    // require column length match headers length
+    })
     rs = rs //piping
             .pipe(split((line) => line + '\n'))
             .pipe(filterTextStream)
