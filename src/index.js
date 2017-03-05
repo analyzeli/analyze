@@ -435,8 +435,9 @@ function load() {
       //Store object in the main collection
       if (app.collections.main.display || app.collections.main.save){
         var flatObj = flat(obj)
+        console.log(flatObj)
         for (var prop in flatObj) {
-          if (!path.has(app.collections.main.records, prop)) {
+          if (app.collections.main.records[prop] === undefined) {
             app.collections.main.records[prop] = []
           }
           app.collections.main.records[prop][app.total] = flatObj[prop]
