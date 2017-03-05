@@ -269,7 +269,7 @@ function analyzeUrl(url, error) {
     var request = http.get(app.url, function (res) {
       app.readStream = res
       app.readStream.setEncoding('utf8')
-      if (url.indexOf('csv') > 0) {
+      if ((app.url.indexOf('csv') > 0) || (app.url.indexOf('tsv' > 0))) {
         app.fileType = 'csv'
       }
       else if (app.readStream.indexOf('xml') > 0) {
