@@ -209,20 +209,6 @@ var app = new Vue({
     },
     newQuery: function() {
       if (app.url.length > 0) {
-        // var query = location.origin + location.pathname
-        // var queryObj = {run: true}
-        // simpleQuery.forEach((key)=>{
-        //   if (app[key]) {
-        //     queryObj[key] = app[key]
-        //   }
-        // })
-        // complexQuery.forEach((key)=>{
-        //   if (app[key]) {
-        //     queryObj[key] = JSON.stringify(app[key])
-        //   }
-        // })
-        // query += '?' + queryString.stringify(queryObj)
-        // return query
         return location.origin + location.pathname + querify.getQueryString({
           run: 'true',
           url: app.url,
@@ -435,7 +421,6 @@ function load() {
       //Store object in the main collection
       if (app.collections.main.display || app.collections.main.save){
         var flatObj = flat(obj)
-        console.log(flatObj)
         for (var prop in flatObj) {
           if (app.collections.main.records[prop] === undefined) {
             app.collections.main.records[prop] = []
