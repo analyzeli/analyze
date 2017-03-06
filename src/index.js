@@ -196,6 +196,14 @@ var app = new Vue({
     },
     analyzeUrl: function() {
       analyzeUrl(this.url, this.httpError)
+    },
+    stopStream: function() {
+      rs.pause()
+      rs.unpipe()
+      app.loading = false
+    },
+    reloadStream: function() {
+      // rs.resume()
     }
   },
   computed: {
@@ -323,7 +331,31 @@ var filterTextStream = (function () {
   })
 })()
 
-// 3.0.2
+// 3.0.2 CSV Parsing Stream
+var csvParser = Combiner([
+  split((line) => line + '\n'),
+  filterTextStream,
+  csv({
+    raw: false,     // do not decode to utf-8 strings
+    separator: app.delimiter, // specify optional cell separator
+    quote: '"',     // specify optional quote character
+    escape: '"',    // specify optional escape character (defaults to quote value)
+    newline: '\n',  // specify a newline character
+    strict: true    // require column length match headers length
+  })
+])
+
+// 3.0.3 XML Parsing Stream
+var xmlParser = Combiner([
+  xmlNodes(app.item),
+  xmlObjects({
+    explicitRoot: false,
+    explicitArray: false,
+    mergeAttrs: false
+  })
+])
+
+// 3.0.4 Object filter stream
 var filterObjectStream = filter.obj(function(obj){
   var l = app.searchArr.length
   var found = (l == 0)
@@ -336,7 +368,7 @@ var filterObjectStream = filter.obj(function(obj){
   return found
 })
 
-// 3.0.3
+// 3.0.5 Object restructuring stream
 function restructureObjectStream(columns) {
   return through2.obj(function (obj, enc, callback) {
     if (columns.length > 0) {
@@ -366,58 +398,6 @@ function load() {
     ctx.fillRect(0,0,app.plotStream.xSize,app.plotStream.ySize)
   }
 
-
-  var csvParser = Combiner([
-    split((line) => line + '\n'),
-    filterTextStream,
-    csv({
-      raw: false,     // do not decode to utf-8 strings
-      separator: app.delimiter, // specify optional cell separator
-      quote: '"',     // specify optional quote character
-      escape: '"',    // specify optional escape character (defaults to quote value)
-      newline: '\n',  // specify a newline character
-      strict: true    // require column length match headers length
-    })
-  ])
-
-  var xmlParser = Combiner([
-    xmlNodes(app.item),
-    xmlObjects({
-      explicitRoot: false,
-      explicitArray: false,
-      mergeAttrs: false
-    })
-  ])
-
-  // rs.pipe(meter) //Count all bytes
-  //CSV Stream
-  // if (app.fileType == 'csv') {
-  //   rs //piping
-  //           .pipe(split((line) => line + '\n'))
-  //           .pipe(filterTextStream)
-  //           .pipe(csv({
-  //             raw: false,     // do not decode to utf-8 strings
-  //             separator: app.delimiter, // specify optional cell separator
-  //             quote: '"',     // specify optional quote character
-  //             escape: '"',    // specify optional escape character (defaults to quote value)
-  //             newline: '\n',  // specify a newline character
-  //             strict: true    // require column length match headers length
-  //           }))
-  // }
-
-  //XML Stream
-  // else {
-  //   rs //piping
-  //           .pipe(xmlNodes(app.item))
-  //           .pipe(filterTextStream)
-  //           .pipe(xmlObjects({
-  //               explicitRoot: false,
-  //               explicitArray: false,
-  //               mergeAttrs: false
-  //             })
-  //           )
-  // }
-
   rs
     .pipe(meter)
     .pipe(ts(()=>app.fileType == 'csv', csvParser, xmlParser))
@@ -426,7 +406,6 @@ function load() {
     .on('data', function(obj) {
     //Here rs throws parsed, filtered, not flat objects
       //Plot stream
-      console.log(obj)
       if (app.plotStream.display) {
         ctx.fillStyle = '#000'
         var x = parseFloat(path.get(obj,app.plotStream.data.xColumn))*(app.plotStream.xSize/(app.plotStream.data.xRange.max - app.plotStream.data.xRange.min)) - app.plotStream.data.xRange.min
