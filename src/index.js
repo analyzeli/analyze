@@ -2,6 +2,8 @@
   //Streams
 const ReadStream = require('filestream').read
 const through2 = require('through2') //Transform stream
+const ts = require('ternary-stream') //Conditionally pipe streams
+const Combiner = require('stream-combiner') //Combine multiple transform streams into one
 const filter = require('stream-filter') //Filter string and obj streams
 const split = require('split') //Split a text stream by lines
 const csv = require('csv-parser') //Parse CSV stream
@@ -84,6 +86,8 @@ class Stat {
 var meter = Meter()
 
 var querify = new Querify (['run','url','search','searchColumn','strictSearch','structure','charts'])
+
+var rs
 
 var app = new Vue({
   el: '#app',
@@ -237,15 +241,15 @@ function analyzeUrl(url, error) {
     error.message = ""
     var readed = false
     var request = http.get(app.url, function (res) {
-      app.readStream = res
-      app.readStream.setEncoding('utf8')
+      rs = res
+      rs.setEncoding('utf8')
       if ((app.url.indexOf('csv') > 0) || (app.url.indexOf('tsv' > 0))) {
         app.fileType = 'csv'
       }
-      else if (app.readStream.indexOf('xml') > 0) {
+      else if (app.url.indexOf('xml') > 0) {
         app.fileType = 'xml'
       }
-      getStreamStructure(app.readStream, app.fileType)
+      getStreamStructure(rs, app.fileType)
     })
     request.on('error', function (e) {
       showApp()
@@ -259,9 +263,9 @@ function analyzeFiles(files) {
   app.file = files[0]
   app.fileType = (app.file.type.slice(app.file.type.indexOf('/') + 1))
   app.fileSize = app.file.size
-  app.readStream = new ReadStream(app.file)
-  app.readStream.setEncoding('utf8')
-  getStreamStructure(app.readStream, app.fileType)
+  rs = new ReadStream(app.file)
+  rs.setEncoding('utf8')
+  getStreamStructure(rs, app.fileType)
 }
 
 // 2. Calculate data header/structure
@@ -362,15 +366,11 @@ function load() {
     ctx.fillRect(0,0,app.plotStream.xSize,app.plotStream.ySize)
   }
 
-  var csvParser
-  var rs = app.readStream
-  rs.setEncoding('utf8')
 
-  rs = rs.pipe(meter) //Count all bytes
-
-  //CSV Stream
-  if (app.fileType == 'csv') {
-    csvParser = csv({
+  var csvParser = Combiner([
+    split((line) => line + '\n'),
+    filterTextStream,
+    csv({
       raw: false,     // do not decode to utf-8 strings
       separator: app.delimiter, // specify optional cell separator
       quote: '"',     // specify optional quote character
@@ -378,34 +378,55 @@ function load() {
       newline: '\n',  // specify a newline character
       strict: true    // require column length match headers length
     })
-    rs = rs //piping
-            .pipe(split((line) => line + '\n'))
-            .pipe(filterTextStream)
-            .pipe(csvParser)
-  }
+  ])
+
+  var xmlParser = Combiner([
+    xmlNodes(app.item),
+    xmlObjects({
+      explicitRoot: false,
+      explicitArray: false,
+      mergeAttrs: false
+    })
+  ])
+
+  // rs.pipe(meter) //Count all bytes
+  //CSV Stream
+  // if (app.fileType == 'csv') {
+  //   rs //piping
+  //           .pipe(split((line) => line + '\n'))
+  //           .pipe(filterTextStream)
+  //           .pipe(csv({
+  //             raw: false,     // do not decode to utf-8 strings
+  //             separator: app.delimiter, // specify optional cell separator
+  //             quote: '"',     // specify optional quote character
+  //             escape: '"',    // specify optional escape character (defaults to quote value)
+  //             newline: '\n',  // specify a newline character
+  //             strict: true    // require column length match headers length
+  //           }))
+  // }
 
   //XML Stream
-  else {
-    rs = rs //piping
-            .pipe(xmlNodes(app.item))
-            .pipe(filterTextStream)
-            .pipe(xmlObjects({
-                explicitRoot: false,
-                explicitArray: false,
-                mergeAttrs: false
-              })
-            )
-  }
+  // else {
+  //   rs //piping
+  //           .pipe(xmlNodes(app.item))
+  //           .pipe(filterTextStream)
+  //           .pipe(xmlObjects({
+  //               explicitRoot: false,
+  //               explicitArray: false,
+  //               mergeAttrs: false
+  //             })
+  //           )
+  // }
 
-  //OBJECT stream
-  rs = rs
-            .pipe(filterObjectStream)
-            .pipe(restructureObjectStream(app.structure.newColumns))
-
-//
-  rs.on('data', function(obj) {
+  rs
+    .pipe(meter)
+    .pipe(ts(()=>app.fileType == 'csv', csvParser, xmlParser))
+    .pipe(filterObjectStream)
+    .pipe(restructureObjectStream(app.structure.newColumns))
+    .on('data', function(obj) {
     //Here rs throws parsed, filtered, not flat objects
       //Plot stream
+      console.log(obj)
       if (app.plotStream.display) {
         ctx.fillStyle = '#000'
         var x = parseFloat(path.get(obj,app.plotStream.data.xColumn))*(app.plotStream.xSize/(app.plotStream.data.xRange.max - app.plotStream.data.xRange.min)) - app.plotStream.data.xRange.min
