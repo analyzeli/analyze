@@ -168,6 +168,7 @@ var app = new Vue({
       history.pushState(null, null, '/');
       this.run = false
       this.search = ''
+      this.searchArr = []
       this.strictSearch = false
       this.structure = {showAll: true, newColumns: []}
       this.charts = []
