@@ -126,6 +126,7 @@ var app = new Vue({
     },
     file: undefined,
     fileSize: 0,
+    analyzed: false,
     loading: false,
     onceLoaded: false,
     w: 0,
@@ -164,6 +165,10 @@ var app = new Vue({
   methods: {
     load: load,
     save: save,
+    open: function() {
+      location.search = ''
+      this.analyzed = false
+    },
     notify: function(message) {
       this.notifyMessage = message
       this.$refs.snackbar.open();
@@ -232,9 +237,6 @@ var app = new Vue({
     },
     streamInfo: function() {
       return (this.file !== undefined) ? 'Last modified: ' + this.file.lastModifiedDate.toLocaleDateString("en-US") : 'Source: ' + this.url
-    },
-    analyzed: function() {
-      return (this.columns && (this.columns.length > 0))
     },
     selectedColumns: function() {
       return (this.structure.showAll) ? this.columns : this.structure.newColumns
@@ -315,6 +317,7 @@ function getStreamStructure(rs, type) {
 // 2.1 Store data structure, trigger loader if needed
 function processStreamStructure (columns) {
   app.columns = columns.slice(0)
+  app.analyzed = true
   if (app.searchColumn.length == 0) app.searchColumn = app.columns[0]
   if (app.url && app.url.length && app.run) {
     Vue.nextTick(function(){
