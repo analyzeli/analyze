@@ -15,7 +15,7 @@
       <img src="img/loader.gif">
     </div>
     <div id="app" style="display:none">
-      <div class="choose-file" v-if="!analyzed">
+      <div class="choose-file" v-if="!isStreamAnalyzed">
         <md-icon class="md-size-2x md-primary">arrow_downward</md-icon>
         <h1>Drag and drop files here</h1>
         <p>or use the input field below</p>
@@ -32,15 +32,15 @@
         </md-input-container>
       </div>
 
-      <div class="sidebar" v-if="analyzed">
+      <div class="sidebar" v-if="isStreamAnalyzed">
         <md-toolbar>
           <h2 class="something-like-logo" style="flex: 1">I>&nbsp;&nbsp;infodiz</h2>
-          <md-button class="md-icon-button">
-            <md-icon>more_horiz</md-icon>
+          <md-button class="md-primary md-raised" v-on:click.native="open">
+            Open
           </md-button>
         </md-toolbar>
 
-        <md-card :class="{hidden: loading}">
+        <md-card :class="{hidden: isStreamLoadingNow}">
           <md-card-expand>
             <md-card-actions>
               <md-icon class="md-primary">filter_list</md-icon>
@@ -71,7 +71,7 @@
         </md-card>
 
         <!-- STRUCTURE -->
-        <md-card :class="{hidden: loading}">
+        <md-card :class="{hidden: isStreamLoadingNow}">
           <md-card-expand>
             <md-card-actions>
               <md-icon class="md-primary">device_hub</md-icon>
@@ -94,7 +94,7 @@
         </md-card>
 
         <!-- PLOT STREAM -->
-        <md-card :class="{hidden: loading}">
+        <md-card :class="{hidden: isStreamLoadingNow}">
           <md-card-expand>
             <md-card-actions>
               <md-icon class="md-primary">bubble_chart</md-icon>
@@ -140,7 +140,7 @@
         </md-card>
 
         <!-- STATS -->
-        <md-card :class="{hidden: loading}">
+        <md-card :class="{hidden: isStreamLoadingNow}">
           <md-card-expand>
             <md-card-actions>
               <md-icon class="md-primary">functions</md-icon>
@@ -198,7 +198,7 @@
         </md-card>
 
         <!-- CHARTS -->
-        <md-card :class="{hidden: loading}">
+        <md-card :class="{hidden: isStreamLoadingNow}">
           <md-card-expand>
             <md-card-actions>
               <md-icon class="md-primary">equalizer</md-icon>
@@ -271,7 +271,7 @@
         </md-card>
 
         <!-- TABLE -->
-        <md-card :class="{hidden: loading}">
+        <md-card :class="{hidden: isStreamLoadingNow}">
           <md-card-expand>
             <md-card-actions>
               <md-icon class="md-primary">view_list</md-icon>
@@ -288,7 +288,7 @@
         </md-card>
 
         <!-- OUTPUT -->
-        <md-card :class="{hidden: loading}">
+        <md-card :class="{hidden: isStreamLoadingNow}">
           <md-card-expand>
             <md-card-actions>
               <md-icon class="md-primary">file_download</md-icon>
@@ -304,15 +304,17 @@
           </md-card-expand>
         </md-card>
 
-        <md-button v-if="!loading" class="md-raised md-primary" v-on:click.native="load">Start</md-button>
+        <md-button v-if="!isStreamLoadingNow && !wasStreamLoaded" class="md-raised md-primary control-button" v-on:click.native="load"><md-icon>play_arrow</md-icon> Start</md-button>
+        <md-button v-if="isStreamLoadingNow" v-on:click.native="stopStream" class="md-raised md-accent control-button"><md-icon>stop</md-icon> Stop</md-button>
+        <md-button v-if="!isStreamLoadingNow && wasStreamLoaded" v-on:click.native="reloadStream" class="md-raised md-primary control-button"><md-icon>replay</md-icon> Reload</md-button>
       </div>
 
-      <div class="content" v-if="analyzed">
+      <div class="content" v-if="isStreamAnalyzed">
         <md-button v-if="url.length" class="md-fab md-primary md-fab-top-right" id="fab" @click.native="generateLink()">
           <md-icon>share</md-icon>
           <md-tooltip md-direction="bottom">Generate link</md-tooltip>
         </md-button>
-        <div id="loading" v-bind:style="{width: w + '%'}" v-if="loading"></div>
+        <div id="loading" v-bind:style="{width: w + '%'}" v-if="isStreamLoadingNow"></div>
         <h1 id="counter">{{ streamName }}</h1>
         <span class="md-caption">{{ streamInfo }}</span>
         <p id="processed" v-if="fileSize">Processed: <b>{{ (100*processed/fileSize).toFixed(0) }}%</b> ({{ (processed/1024).toFixed(1) }}K of {{ (fileSize/1024).toFixed(1) }}K)</p>
