@@ -304,9 +304,9 @@
           </md-card-expand>
         </md-card>
 
-        <md-button v-if="!loading" class="md-raised md-primary" v-on:click.native="load"><md-icon>play_arrow</md-icon> Start</md-button>
+        <md-button v-if="!loading && !onceLoaded" class="md-raised md-primary" v-on:click.native="load"><md-icon>play_arrow</md-icon> Start</md-button>
         <md-button v-if="loading" v-on:click.native="stopStream" class="md-raised md-accent"><md-icon>stop</md-icon> Stop</md-button>
-        <!-- <md-button v-if="loading" v-on:click.native="resumeStream" class="md-raised md-primary"><md-icon>play_arrow</md-icon> Reload</md-button> -->
+        <md-button v-if="!loading && onceLoaded" v-on:click.native="reloadStream" class="md-raised md-primary"><md-icon>replay</md-icon> Reload</md-button>
       </div>
 
       <div class="content" v-if="analyzed">

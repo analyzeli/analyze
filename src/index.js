@@ -83,8 +83,6 @@ class Stat {
   }
 }
 
-var meter = Meter()
-
 var querify = new Querify (['run','url','search','searchColumn','strictSearch','structure','charts'])
 
 var rs
@@ -129,6 +127,7 @@ var app = new Vue({
     file: undefined,
     fileSize: 0,
     loading: false,
+    onceLoaded: false,
     w: 0,
     statTypes: ['Group'],
     stats: [],
@@ -179,8 +178,17 @@ var app = new Vue({
     analyzeFiles: function(event) {
       analyzeFiles(event.target.files)
     },
-    test: function () {
-      alert('ping')
+    resetState: function() {
+      this.total = 0
+      this.collections = {
+        main : {
+              length: 0,
+              display: true,
+              save: true,
+              records: {},
+              name: 'Main'
+            }
+      }
     },
     addStat: function(type) {
       this.stats.push(new Stat(type))
@@ -203,7 +211,19 @@ var app = new Vue({
       app.loading = false
     },
     reloadStream: function() {
-      // rs.resume()
+      this.resetState()
+      if (this.fileSize) {
+        rs = new ReadStream(this.file)
+        rs.setEncoding('utf8')
+        load()
+      }
+      else if (this.url && this.url.length) {
+        http.get(app.url, function (res) {
+          rs = res
+          rs.setEncoding('utf8')
+          load()
+        })
+      }
     }
   },
   computed: {
@@ -234,12 +254,12 @@ var app = new Vue({
     }
   },
   watch: {
-    selectedColumns: function(val) {
-      this.collections.main.records = {}
-      val.forEach((column)=>{
-        this.collections.main.records[column] = []
-      })
-    }
+    // selectedColumns: function(val) {
+    //   this.collections.main.records = {}
+    //   val.forEach((column)=>{
+    //     this.collections.main.records[column] = []
+    //   })
+    // }
   }
 })
 
@@ -305,19 +325,12 @@ function processStreamStructure (columns) {
 }
 
 // 3.0.1
-var filterTextStream = (function () {
+function filterTextStream() {
   var header = true
   return filter(function(line){
     var l = app.searchArr.length
     var found = (l == 0)
     var i = 0
-
-    // Progress
-    var byteStep = (app.fileSize > 10000000) ? 1000000 : 10000
-    if ((meter.bytes - app.processed) > byteStep) {
-      app.processed = meter.bytes
-      app.w = ((app.processed / app.fileSize) * 100).toFixed(1)
-    }
 
     if ((header) && (app.fileType == 'csv')) {
       header = false
@@ -329,44 +342,22 @@ var filterTextStream = (function () {
     }
     return found
   })
-})()
-
-// 3.0.2 CSV Parsing Stream
-var csvParser = Combiner([
-  split((line) => line + '\n'),
-  filterTextStream,
-  csv({
-    raw: false,     // do not decode to utf-8 strings
-    separator: app.delimiter, // specify optional cell separator
-    quote: '"',     // specify optional quote character
-    escape: '"',    // specify optional escape character (defaults to quote value)
-    newline: '\n',  // specify a newline character
-    strict: true    // require column length match headers length
-  })
-])
-
-// 3.0.3 XML Parsing Stream
-var xmlParser = Combiner([
-  xmlNodes(app.item),
-  xmlObjects({
-    explicitRoot: false,
-    explicitArray: false,
-    mergeAttrs: false
-  })
-])
+}
 
 // 3.0.4 Object filter stream
-var filterObjectStream = filter.obj(function(obj){
-  var l = app.searchArr.length
-  var found = (l == 0)
-  var i = 0
-  var value = path.get(obj, app.searchColumn)
-  while ((!found) && (i < l)) {
-   found = found || ((app.strictSearch == true) && (value == app.searchArr[i])) || ((app.strictSearch == false) && (value.indexOf(app.searchArr[i]) >= 0))
-   i+=1
-  }
-  return found
-})
+function filterObjectStream() {
+  return filter.obj(function(obj){
+    var l = app.searchArr.length
+    var found = (l == 0)
+    var i = 0
+    var value = path.get(obj, app.searchColumn)
+    while ((!found) && (i < l)) {
+     found = found || ((app.strictSearch == true) && (value == app.searchArr[i])) || ((app.strictSearch == false) && (value.indexOf(app.searchArr[i]) >= 0))
+     i+=1
+    }
+    return found
+  })
+}
 
 // 3.0.5 Object restructuring stream
 function restructureObjectStream(columns) {
@@ -386,7 +377,8 @@ function restructureObjectStream(columns) {
 
 // 3. Process stream
 function load() {
-  app.loading = true
+  app.loading = true // Currently loading stream
+  app.onceLoaded = true // Stream already opened (for Reload)
   app.searchArr = (app.search.length > 0)
                 ? app.search.split(',').map((el)=>el.trim())
                 : []
@@ -398,13 +390,39 @@ function load() {
     ctx.fillRect(0,0,app.plotStream.xSize,app.plotStream.ySize)
   }
 
+  var meter = Meter()
+
+  var parsingStream = (app.fileType =='csv')
+  ? Combiner([
+      split((line) => line + '\n'),
+      filterTextStream(),
+      csv({
+        raw: false,     // do not decode to utf-8 strings
+        separator: app.delimiter, // specify optional cell separator
+        quote: '"',     // specify optional quote character
+        escape: '"',    // specify optional escape character (defaults to quote value)
+        newline: '\n',  // specify a newline character
+        strict: true    // require column length match headers length
+      })
+    ])
+  : Combiner([
+      xmlNodes(app.item),
+      filterTextStream(),
+      xmlObjects({
+        explicitRoot: false,
+        explicitArray: false,
+        mergeAttrs: false
+      })
+    ])
+
   rs
-    .pipe(meter)
-    .pipe(ts(()=>app.fileType == 'csv', csvParser, xmlParser))
-    .pipe(filterObjectStream)
-    .pipe(restructureObjectStream(app.structure.newColumns))
+    .pipe(meter, { end: false })
+    .pipe(parsingStream, { end: false })
+    .pipe(filterObjectStream(), { end: false })
+    .pipe(restructureObjectStream(app.structure.newColumns), { end: false })
     .on('data', function(obj) {
-    //Here rs throws parsed, filtered, not flat objects
+
+    //Here the pipeline throws parsed, filtered, not flat objects
       //Plot stream
       if (app.plotStream.display) {
         ctx.fillStyle = '#000'
@@ -433,7 +451,17 @@ function load() {
       app.total += 1
     })
 
-    .on('end', function(){
+  var byteStep = app.fileSize / 500
+  rs.on('data', function() {
+    app.processed = meter.bytes
+    var prevBytes = 0
+    if ((meter.bytes - prevBytes) > byteStep) {
+      app.w = ((app.processed / app.fileSize) * 100).toFixed(1)
+      prevBytes = meter.bytes
+    }
+  })
+
+  rs.on('end', function(){
       app.notify('All data loaded')
       app.loading = false
     })
