@@ -165,7 +165,7 @@ var app = new Vue({
     load: load,
     save: save,
     open: function() {
-      history.pushState(null, null, '/');
+      history.pushState(null, null, '/editor/');
       this.run = false
       this.search = ''
       this.searchArr = []
