@@ -167,6 +167,11 @@ var app = new Vue({
     open: function() {
       history.pushState(null, null, '/');
       this.run = false
+      this.search = ''
+      this.strictSearch = false
+      this.structure = {showAll: true,newColumns: []}
+      this.charts = []
+      this.stats = []
       this.wasStreamLoaded = false
       this.url = ''
       this.file = undefined
@@ -190,14 +195,17 @@ var app = new Vue({
     resetState: function() {
       this.total = 0
       this.processed = 0
-      this.collections = {
-        main : {
-              length: 0,
-              display: true,
-              save: true,
-              records: {},
-              name: 'Main'
-            }
+      for (var collectionName in this.collections) {
+        this.collections[collectionName].length = 0
+        if (collectionName == 'Main') {
+          this.collections[collectionName].records = {}
+        }
+        else {
+          var groupCollection = this.collections[collectionName]
+          for (var column in groupCollection.records) {
+            groupCollection.records[column] = []
+          }
+        }
       }
     },
     addStat: function(type) {
@@ -269,6 +277,8 @@ var app = new Vue({
     // }
   }
 })
+
+var appInitial = Object.apply({}, app)
 
 // 1.A Prepare stream (from URL)
 function analyzeUrl(url, error) {
