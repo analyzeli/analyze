@@ -8,7 +8,6 @@ const filter = require('stream-filter') //Filter string and obj streams
 const split = require('split') //Split a text stream by lines
 const csv = require('csv-parser') //Parse CSV stream
 const lineParser = require('csv-parse/lib/sync') //Parse CSV line
-const Meter = require('stream-meter')
 const FileSaver = require('file-saver')
 const xmlNodes = require('xml-nodes')
 const xmlObjects = require('xml-objects')
@@ -126,9 +125,9 @@ var app = new Vue({
     },
     file: undefined,
     fileSize: 0,
-    analyzed: false,
-    loading: false,
-    onceLoaded: false,
+    isStreamAnalyzed: false,
+    isStreamLoadingNow: false,
+    wasStreamLoaded: false,
     w: 0,
     statTypes: ['Group'],
     stats: [],
@@ -166,8 +165,13 @@ var app = new Vue({
     load: load,
     save: save,
     open: function() {
-      location.search = ''
-      this.analyzed = false
+      history.pushState(null, null, '/');
+      this.run = false
+      this.wasStreamLoaded = false
+      this.url = ''
+      this.file = undefined
+      this.resetState()
+      this.isStreamAnalyzed = false
     },
     notify: function(message) {
       this.notifyMessage = message
@@ -185,6 +189,7 @@ var app = new Vue({
     },
     resetState: function() {
       this.total = 0
+      this.processed = 0
       this.collections = {
         main : {
               length: 0,
@@ -213,7 +218,7 @@ var app = new Vue({
     stopStream: function() {
       rs.pause()
       rs.unpipe()
-      app.loading = false
+      app.isStreamLoadingNow = false
     },
     reloadStream: function() {
       this.resetState()
@@ -317,7 +322,7 @@ function getStreamStructure(rs, type) {
 // 2.1 Store data structure, trigger loader if needed
 function processStreamStructure (columns) {
   app.columns = columns.slice(0)
-  app.analyzed = true
+  app.isStreamAnalyzed = true
   if (app.searchColumn.length == 0) app.searchColumn = app.columns[0]
   if (app.url && app.url.length && app.run) {
     Vue.nextTick(function(){
@@ -380,8 +385,8 @@ function restructureObjectStream(columns) {
 
 // 3. Process stream
 function load() {
-  app.loading = true // Currently loading stream
-  app.onceLoaded = true // Stream already opened (for Reload)
+  app.isStreamLoadingNow = true // Currently loading stream
+  app.wasStreamLoaded = true // Stream already opened (for Reload)
   app.searchArr = (app.search.length > 0)
                 ? app.search.split(',').map((el)=>el.trim())
                 : []
@@ -392,8 +397,6 @@ function load() {
     ctx.fillStyle = '#F5F5F5'
     ctx.fillRect(0,0,app.plotStream.xSize,app.plotStream.ySize)
   }
-
-  var meter = Meter()
 
   var parsingStream = (app.fileType =='csv')
   ? Combiner([
@@ -418,8 +421,21 @@ function load() {
       })
     ])
 
+  var byteStep = app.fileSize / 500
+
   rs
-    .pipe(meter, { end: false })
+    .pipe(through2(function (chunk, enc, callback) {
+      app.processed += chunk.length
+      if (app.fileSize) {
+        var prevBytes = 0
+        if ((app.processed - prevBytes) > byteStep) {
+          app.w = ((app.processed / app.fileSize) * 100).toFixed(1)
+          prevBytes = app.processed
+        }
+      }
+      this.push(chunk)
+      callback()
+    }), { end: false })
     .pipe(parsingStream, { end: false })
     .pipe(filterObjectStream(), { end: false })
     .pipe(restructureObjectStream(app.structure.newColumns), { end: false })
@@ -454,19 +470,9 @@ function load() {
       app.total += 1
     })
 
-  var byteStep = app.fileSize / 500
-  rs.on('data', function() {
-    app.processed = meter.bytes
-    var prevBytes = 0
-    if ((meter.bytes - prevBytes) > byteStep) {
-      app.w = ((app.processed / app.fileSize) * 100).toFixed(1)
-      prevBytes = meter.bytes
-    }
-  })
-
   rs.on('end', function(){
       app.notify('All data loaded')
-      app.loading = false
+      app.isStreamLoadingNow = false
     })
 }
 

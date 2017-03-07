@@ -53,7 +53,6 @@
     "stream-combiner": "^0.2.2",
     "stream-filter": "^2.1.0",
     "stream-http": "^2.6.3",
-    "stream-meter": "^1.0.4",
     "ternary-stream": "^2.0.1",
     "through2": "^2.0.3",
     "vue": "^2.2.1",

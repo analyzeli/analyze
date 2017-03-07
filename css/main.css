@@ -60,6 +60,17 @@ h1, h2, h3, .something-like-logo {
   overflow-y: scroll;
   z-index:2;
 }
+
+.sidebar .md-theme-default.md-toolbar {
+  background-color: #3f4194;
+}
+
+.sidebar .control-button {
+  width: 94%;
+  padding: 6px;
+  margin-top: 8px;
+}
+
 .sidebar .md-primary {
   margin-right: 10px;
 }
