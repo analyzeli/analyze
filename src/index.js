@@ -169,7 +169,7 @@ var app = new Vue({
       this.run = false
       this.search = ''
       this.strictSearch = false
-      this.structure = {showAll: true,newColumns: []}
+      this.structure = {showAll: true, newColumns: []}
       this.charts = []
       this.stats = []
       this.wasStreamLoaded = false
@@ -197,7 +197,7 @@ var app = new Vue({
       this.processed = 0
       for (var collectionName in this.collections) {
         this.collections[collectionName].length = 0
-        if (collectionName == 'Main') {
+        if (collectionName.toLowerCase() == 'main') {
           this.collections[collectionName].records = {}
         }
         else {
@@ -378,9 +378,9 @@ function filterObjectStream() {
 }
 
 // 3.0.5 Object restructuring stream
-function restructureObjectStream(columns) {
+function restructureObjectStream(columns, showAllColumns) {
   return through2.obj(function (obj, enc, callback) {
-    if (columns.length > 0) {
+    if ((columns.length > 0) && (!showAllColumns)) {
       var structuredObj = {}
       columns.forEach((el)=>{
         path.set(structuredObj,el,path.get(obj,el))
@@ -448,7 +448,7 @@ function load() {
     }), { end: false })
     .pipe(parsingStream, { end: false })
     .pipe(filterObjectStream(), { end: false })
-    .pipe(restructureObjectStream(app.structure.newColumns), { end: false })
+    .pipe(restructureObjectStream(app.structure.newColumns, app.structure.showAll), { end: false })
     .on('data', function(obj) {
 
     //Here the pipeline throws parsed, filtered, not flat objects
