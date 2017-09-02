@@ -5,7 +5,7 @@
   "main": "index.html",
   "scripts": {
     "watch": "watchify src/index.js -o dist/bundle.js -v",
-    "build": "browserify src/index.js -t babelify -g [ envify --NODE_ENV production ] | uglifyjs - > dist/bundle.js -v",
+    "build": "browserify src/index.js -t babelify -g [ envify --NODE_ENV production ] | uglifyjs -cm > dist/bundle.js",
     "uglify": "uglifyjs dist/bundle.js > dist/bundle.min.js"
   },
   "author": "Anton Zemlyansky",
@@ -13,7 +13,9 @@
   "devDependencies": {
     "babel-cli": "^6.23.0",
     "babel-preset-env": "^1.1.10",
+    "babelify": "^7.3.0",
     "browserify": "^14.0.0",
+    "browserify-shim": "^3.8.14",
     "envify": "^4.0.0",
     "watchify": "^3.9.0"
   },

@@ -1,20 +1,24 @@
-/* Dependencies */
-  //Streams
+// DEPS //
+// Streams reading and transformation
 const ReadStream = require('filestream').read
-const through2 = require('through2') //Transform stream
-const ts = require('ternary-stream') //Conditionally pipe streams
-const Combiner = require('stream-combiner') //Combine multiple transform streams into one
-const filter = require('stream-filter') //Filter string and obj streams
-const split = require('split') //Split a text stream by lines
-const csv = require('csv-parser') //Parse CSV stream
-const lineParser = require('csv-parse/lib/sync') //Parse CSV line
+const through2 = require('through2') // Transform stream
+const filter = require('stream-filter') // Filter string and obj streams
 const FileSaver = require('file-saver')
-const xmlNodes = require('xml-nodes')
-const xmlObjects = require('xml-objects')
-const http = require('stream-http') //XHR as a stream
-const getCsvStreamStructure = require('./get-csv-stream-structure.js') //Get CSV header
-const getXmlStreamStructure = require('./get-xml-stream-structure.js') //Get XML nodes and repeated node
-  //Objects
+const http = require('stream-http') // XHR as a stream
+const getCsvStreamStructure = require('./get-csv-stream-structure.js') // Get CSV header
+const getXmlStreamStructure = require('./get-xml-stream-structure.js') // Get XML nodes and repeated node
+const splitStream = require('./utils/split-stream')
+const parseStream = require('./utils/parse-stream')
+
+// const xmlObjects = require('xml-objects') // Parse XML
+// const csv = require('csv-parser') // Parse CSV
+// const Combiner = require('stream-combiner') // Combine multiple transform streams into one
+// const ts = require('ternary-stream') // Conditionally pipe streams
+// const split = require('split') // Split a text stream by lines
+// const lineParser = require('csv-parse/lib/sync') // Parse CSV line
+// const xmlNodes = require('xml-nodes')
+
+// Objects
 const flat = require('flat')
 const path = require('object-path') //Acess nested object properties with a variable
 const saveToCollection = require('./save-to-collection.js')
@@ -88,6 +92,7 @@ var rs
 
 var app = new Vue({
   el: '#app',
+  template: require('./app.template.js'),
   data: {
     notifyMessage: '',
     vertical: 'bottom',
@@ -409,29 +414,6 @@ function load() {
     ctx.fillRect(0,0,app.plotStream.xSize,app.plotStream.ySize)
   }
 
-  var parsingStream = (app.fileType =='csv')
-  ? Combiner([
-      split((line) => line + '\n'),
-      filterTextStream(),
-      csv({
-        raw: false,     // do not decode to utf-8 strings
-        separator: app.delimiter, // specify optional cell separator
-        quote: '"',     // specify optional quote character
-        escape: '"',    // specify optional escape character (defaults to quote value)
-        newline: '\n',  // specify a newline character
-        strict: true    // require column length match headers length
-      })
-    ])
-  : Combiner([
-      xmlNodes(app.item),
-      filterTextStream(),
-      xmlObjects({
-        explicitRoot: false,
-        explicitArray: false,
-        mergeAttrs: false
-      })
-    ])
-
   var byteStep = app.fileSize / 500
 
   rs
@@ -447,13 +429,14 @@ function load() {
       this.push(chunk)
       callback()
     }), { end: false })
-    .pipe(parsingStream, { end: false })
+    .pipe(splitStream(app.fileType, app.item), { end: false }) // Split text stream into text blocks (one for each record)
+    .pipe(filterTextStream(), { end: false }) // Filter text blocks if needed
+    .pipe(parseStream(app.fileType, app.delimiter), { end: false }) // 'end' <boolean> End the writer when the reader ends. Defaults to true
     .pipe(filterObjectStream(), { end: false })
     .pipe(restructureObjectStream(app.structure.newColumns, app.structure.showAll), { end: false })
-    .on('data', function(obj) {
-
-    //Here the pipeline throws parsed, filtered, not flat objects
-      //Plot stream
+    .on('data', function (obj) {
+      // Here the pipeline throws parsed, filtered, not flat objects
+      // Plot stream
       if (app.plotStream.display) {
         ctx.fillStyle = '#000'
         var x = parseFloat(path.get(obj,app.plotStream.data.xColumn))*(app.plotStream.xSize/(app.plotStream.data.xRange.max - app.plotStream.data.xRange.min)) - app.plotStream.data.xRange.min
