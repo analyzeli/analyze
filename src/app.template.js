@@ -289,9 +289,9 @@ module.exports = `
           </md-card-expand>
         </md-card>
 
-        <md-button v-if="!isStreamLoadingNow && !wasStreamLoaded" class="md-raised md-primary control-button" v-on:click.native="load"><md-icon>play_arrow</md-icon> Start</md-button>
+        <md-button v-if="!isStreamLoadingNow && !wasStreamLoaded" class="md-raised md-primary control-button" v-on:click.native="load"><md-icon>play_arrow</md-icon> Run</md-button>
         <md-button v-if="isStreamLoadingNow" v-on:click.native="stopStream" class="md-raised md-accent control-button"><md-icon>stop</md-icon> Stop</md-button>
-        <md-button v-if="!isStreamLoadingNow && wasStreamLoaded" v-on:click.native="reloadStream" class="md-raised md-primary control-button"><md-icon>replay</md-icon> Reload</md-button>
+        <md-button v-if="!isStreamLoadingNow && wasStreamLoaded" v-on:click.native="reloadStream" class="md-raised md-primary control-button"><md-icon>replay</md-icon> Rerun</md-button>
       </div>
 
       <div class="content" v-if="isStreamAnalyzed">

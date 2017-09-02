@@ -20,22 +20,25 @@ const parseStream = require('./utils/parse-stream')
 
 // Objects
 const flat = require('flat')
-const path = require('object-path') //Acess nested object properties with a variable
+const path = require('object-path') // Acess nested object properties with a variable
 const saveToCollection = require('./save-to-collection.js')
-const json2csv = require('json2csv') //Convert array of objects to CSV
-const escape = require('html-escape') //Sanitize url
-  //Stats
+const json2csv = require('json2csv') // Convert array of objects to CSV
+const escape = require('html-escape') // Sanitize url
+
+//Stats
 const group = require('./group.js') //Group by a properties
-  //Vis
+
+//Vis
 const Vue = require('vue')
 const VueMaterial = require('vue-material')
 const Chartist = require('vue-chartist')
-const dnd = require('drag-and-drop-files') //Handle Drag and Drop events
+const dnd = require('drag-and-drop-files') // Handle Drag and Drop events
+
 //Other
 const queryString = require('query-string')
 const Querify = require('./querify.js')
 
-function showApp() {
+function showApp () {
   document.getElementById('app-loader').style.display = 'none'
   document.getElementById('app').style.removeProperty('display')
 }
@@ -214,34 +217,33 @@ var app = new Vue({
         }
       }
     },
-    addStat: function(type) {
+    addStat: function (type) {
       this.stats.push(new Stat(type))
     },
-    removeStat: function(index) {
-      this.stats.splice(index,1)
+    removeStat: function (index) {
+      this.stats.splice(index, 1)
     },
-    addChart: function(type) {
+    addChart: function (type) {
       this.charts.push(new Chart(type))
     },
-    removeChart: function(index) {
-      this.charts.splice(index,1)
+    removeChart: function (index) {
+      this.charts.splice(index, 1)
     },
-    analyzeUrl: function() {
+    analyzeUrl: function () {
       analyzeUrl(this.url, this.httpError)
     },
-    stopStream: function() {
+    stopStream: function () {
       rs.pause()
       rs.unpipe()
       app.isStreamLoadingNow = false
     },
-    reloadStream: function() {
+    reloadStream: function () {
       this.resetState()
       if (this.fileSize) {
         rs = new ReadStream(this.file)
         rs.setEncoding('utf8')
         load()
-      }
-      else if (this.url && this.url.length) {
+      } else if (this.url && this.url.length) {
         http.get(app.url, function (res) {
           rs = res
           rs.setEncoding('utf8')
@@ -320,15 +322,14 @@ function analyzeFiles(files) {
 }
 
 // 2. Calculate data header/structure
-function getStreamStructure(rs, type) {
-  if (type == 'csv') {
-    getCsvStreamStructure(rs, function(columns, delimiter) {
+function getStreamStructure (rs, type) {
+  if (type === 'csv') {
+    getCsvStreamStructure(rs, function (columns, delimiter) {
       app.delimiter = delimiter
       processStreamStructure(columns)
     })
-  }
-  else if (type == 'xml') {
-    getXmlStreamStructure(rs, function(columns, item) {
+  } else if (type === 'xml') {
+    getXmlStreamStructure(rs, function (columns, item) {
       app.item = item
       processStreamStructure(columns)
     })
@@ -339,45 +340,74 @@ function getStreamStructure(rs, type) {
 function processStreamStructure (columns) {
   app.columns = columns.slice(0)
   app.isStreamAnalyzed = true
-  if (app.searchColumn.length == 0) app.searchColumn = app.columns[0]
+  if (app.searchColumn.length === 0) app.searchColumn = app.columns[0]
   if (app.url && app.url.length && app.run) {
-    Vue.nextTick(function(){
+    Vue.nextTick(function () {
       load()
     })
   }
   showApp()
+  ;(function () {
+    var counter = 0
+    var prs = rs
+      .pipe(splitStream(app.fileType, app.item), { end: false }) // Split text stream into text blocks (one for each record)
+      .pipe(parseStream(app.fileType, app.delimiter), { end: false }) // 'end' <boolean> End the writer when the reader ends. Defaults to true
+    // readSomeStream(prs, 5)
+    prs.on('data', function (obj) {
+      if (counter < 50) {
+        counter += 1
+        var flatObj = flat(obj)
+        for (var prop in flatObj) {
+          if (app.collections.main.records[prop] === undefined) {
+            app.collections.main.records[prop] = []
+          }
+          app.collections.main.records[prop].push(flatObj[prop])
+        }
+        app.collections.main.length += 1
+        console.log(obj)
+      } else {
+        prs.pause()
+      }
+    })
+    document.addEventListener('scroll', function (e) {
+      if ((document.body.scrollHeight - window.innerHeight - window.scrollY) < 100) {
+        counter = 0
+        prs.resume()
+      }
+    }, false)
+  })()
 }
 
 // 3.0.1
-function filterTextStream() {
+function filterTextStream () {
   var header = true
-  return filter(function(line){
+  return filter(function (line) {
     var l = app.searchArr.length
-    var found = (l == 0)
+    var found = (l === 0)
     var i = 0
 
-    if ((header) && (app.fileType == 'csv')) {
+    if ((header) && (app.fileType === 'csv')) {
       header = false
       return true
     }
     while ((!found) && (i < l)) {
-     found = found || (line.indexOf(app.searchArr[i]) >= 0)
-     i+=1
+      found = found || (line.indexOf(app.searchArr[i]) >= 0)
+      i += 1
     }
     return found
   })
 }
 
 // 3.0.4 Object filter stream
-function filterObjectStream() {
-  return filter.obj(function(obj){
+function filterObjectStream () {
+  return filter.obj(function (obj) {
     var l = app.searchArr.length
-    var found = (l == 0)
+    var found = (l === 0)
     var i = 0
     var value = path.get(obj, app.searchColumn)
     while ((!found) && (i < l)) {
-     found = found || ((app.strictSearch == true) && (value == app.searchArr[i])) || ((app.strictSearch == false) && (value.indexOf(app.searchArr[i]) >= 0))
-     i+=1
+      found = found || ((app.strictSearch === true) && (value === app.searchArr[i])) || ((app.strictSearch === false) && (value.indexOf(app.searchArr[i]) >= 0))
+      i += 1
     }
     return found
   })
@@ -400,18 +430,18 @@ function restructureObjectStream(columns, showAllColumns) {
 }
 
 // 3. Process stream
-function load() {
+function load () {
   app.isStreamLoadingNow = true // Currently loading stream
   app.wasStreamLoaded = true // Stream already opened (for Reload)
   app.searchArr = (app.search.length > 0)
-                ? app.search.split(',').map((el)=>el.trim())
+                ? app.search.split(',').map((el) => el.trim())
                 : []
 
   if (app.plotStream.display) {
     var canvas = document.getElementById('canvas')
     var ctx = canvas.getContext('2d')
     ctx.fillStyle = '#F5F5F5'
-    ctx.fillRect(0,0,app.plotStream.xSize,app.plotStream.ySize)
+    ctx.fillRect(0, 0, app.plotStream.xSize, app.plotStream.ySize)
   }
 
   var byteStep = app.fileSize / 500
