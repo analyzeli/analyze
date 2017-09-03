@@ -2,7 +2,7 @@ module.exports = `
     <div id="app">
       <div class="choose-file" v-if="!isStreamAnalyzed">
         <md-icon class="md-size-2x md-primary">arrow_downward</md-icon>
-        <h1>Draggy and drop files here</h1>
+        <h1>Drag and drop files here</h1>
         <p>or use the input field below</p>
         <md-input-container>
           <label>Local CSV or XML file</label>
