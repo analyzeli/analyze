@@ -238,6 +238,8 @@ var app = new Vue({
       app.isStreamLoadingNow = false
     },
     reloadStream: function () {
+      // Remove event listener that auto resumes stream when bottom of a page reached
+      document.removeEventListener('scroll', resumeStreamIfBottom)
       this.resetState()
       if (this.fileSize) {
         rs = new ReadStream(this.file)
@@ -253,16 +255,16 @@ var app = new Vue({
     }
   },
   computed: {
-    streamName: function() {
+    streamName: function () {
       return (this.file !== undefined) ? this.file.name : this.url.slice(this.url.lastIndexOf('/') + 1, this.url.search(/tsv|csv/g) + 3)
     },
-    streamInfo: function() {
+    streamInfo: function () {
       return (this.file !== undefined) ? 'Last modified: ' + this.file.lastModifiedDate.toLocaleDateString("en-US") : 'Source: ' + this.url
     },
-    selectedColumns: function() {
+    selectedColumns: function () {
       return (this.structure.showAll) ? this.columns : this.structure.newColumns
     },
-    newQuery: function() {
+    newQuery: function () {
       if (app.url.length > 0) {
         return location.origin + location.pathname + querify.getQueryString({
           run: 'true',
@@ -336,6 +338,15 @@ function getStreamStructure (rs, type) {
   }
 }
 
+var counter = 0
+
+function resumeStreamIfBottom () {
+  if ((document.body.scrollHeight - window.innerHeight - window.scrollY) < 100) {
+    counter = 0
+    rs.resume()
+  }
+}
+
 // 2.1 Store data structure, trigger loader if needed
 function processStreamStructure (columns) {
   app.columns = columns.slice(0)
@@ -347,13 +358,12 @@ function processStreamStructure (columns) {
     })
   }
   showApp()
-  ;(function () {
-    var counter = 0
-    var prs = rs
-      .pipe(splitStream(app.fileType, app.item), { end: false }) // Split text stream into text blocks (one for each record)
-      .pipe(parseStream(app.fileType, app.delimiter), { end: false }) // 'end' <boolean> End the writer when the reader ends. Defaults to true
-    // readSomeStream(prs, 5)
-    prs.on('data', function (obj) {
+
+  // Preload data
+  rs
+    .pipe(splitStream(app.fileType, app.item), { end: false }) // Split text stream into text blocks (one for each record)
+    .pipe(parseStream(app.fileType, app.delimiter), { end: false }) // 'end' <boolean> End the writer when the reader ends. Defaults to true
+    .on('data', function (obj) {
       if (counter < 50) {
         counter += 1
         var flatObj = flat(obj)
@@ -366,16 +376,12 @@ function processStreamStructure (columns) {
         app.collections.main.length += 1
         console.log(obj)
       } else {
-        prs.pause()
+        rs.pause()
       }
     })
-    document.addEventListener('scroll', function (e) {
-      if ((document.body.scrollHeight - window.innerHeight - window.scrollY) < 100) {
-        counter = 0
-        prs.resume()
-      }
-    }, false)
-  })()
+
+  // Load some more data when scroll to bottom
+  document.addEventListener('scroll', resumeStreamIfBottom, false)
 }
 
 // 3.0.1
@@ -414,19 +420,19 @@ function filterObjectStream () {
 }
 
 // 3.0.5 Object restructuring stream
-function restructureObjectStream(columns, showAllColumns) {
+function restructureObjectStream (columns, showAllColumns) {
   return through2.obj(function (obj, enc, callback) {
     if ((columns.length > 0) && (!showAllColumns)) {
       var structuredObj = {}
-      columns.forEach((el)=>{
-        path.set(structuredObj,el,path.get(obj,el))
+      columns.forEach((el) => {
+        path.set(structuredObj, el, path.get(obj, el))
       })
       this.push(structuredObj)
     } else {
       this.push(obj)
     }
     callback()
-   })
+  })
 }
 
 // 3. Process stream
@@ -436,6 +442,9 @@ function load () {
   app.searchArr = (app.search.length > 0)
                 ? app.search.split(',').map((el) => el.trim())
                 : []
+
+  // Remove 'scroll' event listener that resumes stream
+  document.removeEventListener('scroll', resumeStreamIfBottom)
 
   if (app.plotStream.display) {
     var canvas = document.getElementById('canvas')

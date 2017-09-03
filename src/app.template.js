@@ -24,175 +24,151 @@ module.exports = `
             Open
           </md-button>
         </md-toolbar>
+       
+        <md-list>
+        
+        <!-- FILTER/SEARCH -->
+        <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
+          <md-icon class="md-primary">filter_list</md-icon>
+          <div class="md-subheading">Filter (Search)</div>
+          <md-list-expand>
+            <md-card>
+              <md-card-content>
+                <md-input-container>
+                  <label>Search string</label>
+                  <md-input v-model="search"></md-input>
+                </md-input-container>
+                <md-input-container>
+                  <label for="search-column">Search in columns</label>
+                  <md-select name="search-column" id="search-column" v-model="searchColumn">
+                    <md-option v-for="column in columns" :value="column" :key="column">{{ column }}</md-option>
+                  </md-select>
+                </md-input-container>
+                <md-checkbox id="strict-search" name="strict-search" v-model="strictSearch" class="md-primary">Strict search</md-checkbox>
+              </md-card-content>
+            </md-card>
+          </md-list-expand>
+        </md-list-item>
 
-        <md-card :class="{hidden: isStreamLoadingNow}">
-          <md-card-expand>
-            <md-card-actions>
-              <md-icon class="md-primary">filter_list</md-icon>
-              <div class="md-subheading">Filter (Search)</div>
-              <span style="flex: 1"></span>
-              <md-button class="md-icon-button" md-expand-trigger>
-                <md-icon>keyboard_arrow_down</md-icon>
-              </md-button>
-            </md-card-actions>
-            <md-card-content>
-
-              <md-input-container>
-                <label>Search string</label>
-                <md-input v-model="search"></md-input>
-              </md-input-container>
-
-              <md-input-container>
-                <label for="search-column">Search in columns</label>
-                <md-select name="search-column" id="search-column" v-model="searchColumn">
-                  <md-option v-for="column in columns" :value="column" :key="column">{{ column }}</md-option>
-                </md-select>
-              </md-input-container>
-
-              <md-checkbox id="strict-search" name="strict-search" v-model="strictSearch" class="md-primary">Strict search</md-checkbox>
-
-            </md-card-content>
-          </md-card-expand>
-        </md-card>
-
-        <!-- STRUCTURE -->
-        <md-card :class="{hidden: isStreamLoadingNow}">
-          <md-card-expand>
-            <md-card-actions>
-              <md-icon class="md-primary">device_hub</md-icon>
-              <div class="md-subheading">Structure</div>
-              <span style="flex: 1"></span>
-              <md-button class="md-icon-button" md-expand-trigger>
-                <md-icon>keyboard_arrow_down</md-icon>
-              </md-button>
-            </md-card-actions>
-            <md-card-content>
-              <md-checkbox id="structure-showall" name="structure-showall" v-model="structure.showAll" class="md-primary">Keep all fields</md-checkbox>
-              <md-input-container v-if="!structure.showAll">
-                <label for="structure">Structure</label>
-                <md-select name="structure" id="structure" multiple v-model="structure.newColumns">
-                  <md-option v-for="column in columns" :value="column" :key="column">{{ column }}</md-option>
-                </md-select>
-              </md-input-container>
-            </md-card-content>
-          </md-card-expand>
-        </md-card>
+        <!-- RESTRUCTURE -->
+        <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
+          <md-icon class="md-primary">device_hub</md-icon>
+          <div class="md-subheading">Restructure</div>
+          <md-list-expand>
+            <md-card>
+              <md-card-content>
+                <md-checkbox id="structure-showall" name="structure-showall" v-model="structure.showAll" class="md-primary">Keep all fields</md-checkbox>
+                <md-input-container v-if="!structure.showAll">
+                  <label for="structure">Structure</label>
+                  <md-select name="structure" id="structure" multiple v-model="structure.newColumns">
+                    <md-option v-for="column in columns" :value="column" :key="column">{{ column }}</md-option>
+                  </md-select>
+                </md-input-container>
+              </md-card-content>
+            </md-card>
+          </md-list-expand>
+        </md-list-item>
 
         <!-- PLOT STREAM -->
-        <md-card :class="{hidden: isStreamLoadingNow}">
-          <md-card-expand>
-            <md-card-actions>
-              <md-icon class="md-primary">bubble_chart</md-icon>
-              <div class="md-subheading">Plot stream</div>
-              <span style="flex: 1"></span>
-              <md-button class="md-icon-button" md-expand-trigger>
-                <md-icon>keyboard_arrow_down</md-icon>
-              </md-button>
-            </md-card-actions>
-            <md-card-content>
-              <md-checkbox id="plot-display" name="plot-display" v-model="plotStream.display" class="md-primary">Visualize plot</md-checkbox>
-              <div v-if="plotStream.display">
-                <h4>X axis</h4>
-                <md-input-container>
-                  <label for="x-column">Select column for X</label>
-                  <md-select name="x-column" id="x-column" v-model="plotStream.data.xColumn">
-                    <md-option v-for="column in columns" :value="column" :key="column">{{ column }}</md-option>
-                  </md-select>
-                </md-input-container>
-
-                <md-input-container md-inline>
-                    <md-input name="x-min" id="x-min" type="number" placeholder="X-min" v-model="plotStream.data.xRange.min"></md-input>
-                    <md-input name="x-max" id="x-max" type="number" placeholder="X-max" v-model="plotStream.data.xRange.max"></md-input>
-                </md-input-container>
-
-                <h4>Y axis</h4>
-
-                <md-input-container>
-                  <label for="y-column">Select column for Y</label>
-                  <md-select name="y-column" id="y-column" v-model="plotStream.data.yColumn">
-                    <md-option v-for="column in columns" :value="column" :key="column">{{ column }}</md-option>
-                  </md-select>
-                </md-input-container>
-
-                <md-input-container md-inline>
-                    <md-input name="y-min" id="y-min" type="number" placeholder="Y-min" v-model="plotStream.data.yRange.min"></md-input>
-                    <md-input name="y-max" id="y-max" type="number" placeholder="Y-max" v-model="plotStream.data.yRange.max"></md-input>
-                </md-input-container>
-              </div>
-
-            </md-card-content>
-          </md-card-expand>
-        </md-card>
-
-        <!-- STATS -->
-        <md-card :class="{hidden: isStreamLoadingNow}">
-          <md-card-expand>
-            <md-card-actions>
-              <md-icon class="md-primary">functions</md-icon>
-              <div class="md-subheading">Functions</div>
-              <span style="flex: 1"></span>
-              <md-button class="md-icon-button" md-expand-trigger>
-                <md-icon>keyboard_arrow_down</md-icon>
-              </md-button>
-            </md-card-actions>
-            <md-card-content>
-
-              <!-- Add new stat menu -->
-              <md-menu md-direction="bottom left" md-size="4">
-                <md-button class="md-icon-button" md-menu-trigger>
-                  <md-icon>add</md-icon>
-                </md-button>
-                <md-menu-content>
-                  <md-menu-item v-for="type in statTypes" :key="type" v-on:click.native="addStat(type)">
-                    <span> {{ type }}</span>
-                    <md-icon>add_circle_outline</md-icon>
-                  </md-menu-item>
-                </md-menu-content>
-              </md-menu>
-
-              <!-- Stat blocks -->
-              <md-card class="stat-card md-primary" v-for="(stat,index) in stats" :key="stat.name">
-                <md-card-header>
-                  <md-card-header-text>
-                    <div class="md-subhead"> {{ stat.name }} </div>
-                  </md-card-header-text>
-                  <md-menu md-size="4" md-direction="bottom left">
-                    <md-button class="md-icon-button" md-menu-trigger>
-                      <md-icon>more_vert</md-icon>
-                    </md-button>
-                    <md-menu-content>
-                      <md-menu-item v-on:click.native="removeStat(index)">
-                        <span>Remove</span>
-                        <md-icon>delete</md-icon>
-                      </md-menu-item>
-                    </md-menu-content>
-                  </md-menu>
-                </md-card-header>
+        <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
+            <md-icon class="md-primary">bubble_chart</md-icon>
+            <div class="md-subheading">Plot stream</div>
+            <md-list-expand>
+              <md-card>
                 <md-card-content>
-                  <md-input-container v-for="(input,index) in stat.inputColumns" :key="index">
-                    <label>Select input ({{ index }})</label>
-                    <md-select v-model="stat.inputColumns[index]">
-                      <md-option v-for="column in columns" v-bind:value="column" :key="column">{{ column }}</md-option>
-                    </md-select>
-                  </md-input-container>
+                  <md-checkbox id="plot-display" name="plot-display" v-model="plotStream.display" class="md-primary">Visualize plot</md-checkbox>
+                  <div v-if="plotStream.display">
+                    <h4>X axis</h4>
+                    <md-input-container>
+                      <label for="x-column">Select column for X</label>
+                      <md-select name="x-column" id="x-column" v-model="plotStream.data.xColumn">
+                        <md-option v-for="column in columns" :value="column" :key="column">{{ column }}</md-option>
+                      </md-select>
+                    </md-input-container>
+
+                    <md-input-container md-inline>
+                        <md-input name="x-min" id="x-min" type="number" placeholder="X-min" v-model="plotStream.data.xRange.min"></md-input>
+                        <md-input name="x-max" id="x-max" type="number" placeholder="X-max" v-model="plotStream.data.xRange.max"></md-input>
+                    </md-input-container>
+
+                    <h4>Y axis</h4>
+
+                    <md-input-container>
+                      <label for="y-column">Select column for Y</label>
+                      <md-select name="y-column" id="y-column" v-model="plotStream.data.yColumn">
+                        <md-option v-for="column in columns" :value="column" :key="column">{{ column }}</md-option>
+                      </md-select>
+                    </md-input-container>
+
+                    <md-input-container md-inline>
+                        <md-input name="y-min" id="y-min" type="number" placeholder="Y-min" v-model="plotStream.data.yRange.min"></md-input>
+                        <md-input name="y-max" id="y-max" type="number" placeholder="Y-max" v-model="plotStream.data.yRange.max"></md-input>
+                    </md-input-container>
+                  </div>
                 </md-card-content>
               </md-card>
+            </md-list-expand>
+        </md-list-item>
 
-            </md-card-content>
-          </md-card-expand>
-        </md-card>
+        <!-- ANALYSIS -->
+        <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
+          <md-icon class="md-primary">functions</md-icon>
+          <div class="md-subheading">Analysis</div>
+          <md-list-expand>
+            <md-card>
+              <md-card-content>
+                <!-- Add new stat menu -->
+                <md-menu md-direction="bottom left" md-size="4">
+                  <md-button md-menu-trigger>
+                    <md-icon>add</md-icon>
+                    Add function
+                  </md-button>
+                  <md-menu-content>
+                    <md-menu-item v-for="type in statTypes" :key="type" v-on:click.native="addStat(type)">
+                      <span> {{ type }}</span>
+                      <md-icon>add_circle_outline</md-icon>
+                    </md-menu-item>
+                  </md-menu-content>
+                </md-menu>
+
+                <!-- Stat blocks -->
+                <md-card class="stat-card md-primary" v-for="(stat,index) in stats" :key="stat.name">
+                  <md-card-header>
+                    <md-card-header-text>
+                      <div class="md-subhead"> {{ stat.name }} </div>
+                    </md-card-header-text>
+                    <md-menu md-size="4" md-direction="bottom left">
+                      <md-button class="md-icon-button" md-menu-trigger>
+                        <md-icon>more_vert</md-icon>
+                      </md-button>
+                      <md-menu-content>
+                        <md-menu-item v-on:click.native="removeStat(index)">
+                          <span>Remove</span>
+                          <md-icon>delete</md-icon>
+                        </md-menu-item>
+                      </md-menu-content>
+                    </md-menu>
+                  </md-card-header>
+                  <md-card-content>
+                    <md-input-container v-for="(input,index) in stat.inputColumns" :key="index">
+                      <label>Select input ({{ index }})</label>
+                      <md-select v-model="stat.inputColumns[index]">
+                        <md-option v-for="column in columns" v-bind:value="column" :key="column">{{ column }}</md-option>
+                      </md-select>
+                    </md-input-container>
+                  </md-card-content>
+                </md-card>
+              </md-card-content>
+            </md-card>
+          </md-list-expand>
+        </md-list-item>
 
         <!-- CHARTS -->
-        <md-card :class="{hidden: isStreamLoadingNow}">
-          <md-card-expand>
-            <md-card-actions>
-              <md-icon class="md-primary">equalizer</md-icon>
-              <div class="md-subheading">Charts</div>
-              <span style="flex: 1"></span>
-              <md-button class="md-icon-button" md-expand-trigger>
-                <md-icon>keyboard_arrow_down</md-icon>
-              </md-button>
-            </md-card-actions>
+        <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
+          <md-icon class="md-primary">equalizer</md-icon>
+          <div class="md-subheading">Charts</div>
+          <md-list-expand>
+            <md-card>
             <md-card-content>
               <!-- Add new chart menu -->
               <md-menu md-direction="bottom left" md-size="4">
@@ -252,44 +228,38 @@ module.exports = `
               </md-card>
 
             </md-card-content>
-          </md-card-expand>
-        </md-card>
+            </md-card>
+          </md-list-expand>
+        </md-list-item>
 
         <!-- TABLE -->
-        <md-card :class="{hidden: isStreamLoadingNow}">
-          <md-card-expand>
-            <md-card-actions>
-              <md-icon class="md-primary">view_list</md-icon>
-              <div class="md-subheading">Table (slow)</div>
-              <span style="flex: 1"></span>
-              <md-button class="md-icon-button" md-expand-trigger>
-                <md-icon>keyboard_arrow_down</md-icon>
-              </md-button>
-            </md-card-actions>
-            <md-card-content>
-              <md-checkbox v-for="(collection, collectionName) in collections" v-model="collection.display" :key="collectionName" :name="collectionName + '-display'" class="md-primary">Display {{ collectionName }} collection</md-checkbox>
-            </md-card-content>
-          </md-card-expand>
-        </md-card>
+        <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
+          <md-icon class="md-primary">view_list</md-icon>
+          <div class="md-subheading">Table (slow)</div>
+          <md-list-expand>
+            <md-card>
+              <md-card-content>
+                <md-checkbox v-for="(collection, collectionName) in collections" v-model="collection.display" :key="collectionName" :name="collectionName + '-display'" class="md-primary">Display {{ collectionName }} collection</md-checkbox>
+              </md-card-content>
+            </md-card>
+          </md-list-expand>
+        </md-list-item>
 
         <!-- OUTPUT -->
-        <md-card :class="{hidden: isStreamLoadingNow}">
-          <md-card-expand>
-            <md-card-actions>
-              <md-icon class="md-primary">file_download</md-icon>
-              <div class="md-subheading">Save</div>
-              <span style="flex: 1"></span>
-              <md-button class="md-icon-button" md-expand-trigger>
-                <md-icon>keyboard_arrow_down</md-icon>
-              </md-button>
-            </md-card-actions>
-            <md-card-content>
-              <md-checkbox v-for="(collection, collectionName) in collections" v-model="collection.save" :key="collectionName" :name="collectionName + '-save'" class="md-primary">Save {{ collectionName }} collection</md-checkbox>
-            </md-card-content>
-          </md-card-expand>
-        </md-card>
+        <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
+          <md-icon class="md-primary">file_download</md-icon>
+          <div class="md-subheading">Save</div>
+          <md-list-expand>
+            <md-card>
+              <md-card-content>
+                <md-checkbox v-for="(collection, collectionName) in collections" v-model="collection.save" :key="collectionName" :name="collectionName + '-save'" class="md-primary">Save {{ collectionName }} collection</md-checkbox>
+              </md-card-content>
+            </md-card>
+          </md-list-expand>
+        </md-list-item>
 
-        <md-button v-if="!isStreamLoadingNow && !wasStreamLoaded" class="md-raised md-primary control-button" v-on:click.native="load"><md-icon>play_arrow</md-icon> Run</md-button>
+        </md-list>
+        <md-button v-if="!isStreamLoadingNow && !wasStreamLoaded" class="md-raised md-primary control-button" v-on:click.native="reloadStream"><md-icon>play_arrow</md-icon> Run</md-button>
         <md-button v-if="isStreamLoadingNow" v-on:click.native="stopStream" class="md-raised md-accent control-button"><md-icon>stop</md-icon> Stop</md-button>
         <md-button v-if="!isStreamLoadingNow && wasStreamLoaded" v-on:click.native="reloadStream" class="md-raised md-primary control-button"><md-icon>replay</md-icon> Rerun</md-button>
       </div>
