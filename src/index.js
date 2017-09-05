@@ -47,7 +47,7 @@ Vue.use(VueMaterial)
 Vue.use(Chartist)
 
 class Chart {
-  constructor(type) {
+  constructor (type) {
     this.name = type + '.' + app.charts.length
     this.type = type
     this.inputCollection = ''
@@ -56,26 +56,18 @@ class Chart {
   }
 }
 
+var TopK = require('./stat/topk')
+var Group = require('./stat/group')
+var Stats = {TopK}
+/*
 class Stat {
-  constructor(type) {
+  constructor (type) {
     this.name = type + '.' + app.stats.length
     this.inputColumns = []
-
-    app.collections[this.name] = {
-      records: {},
-      length: 0,
-      display: true,
-      save: true,
-      name: this.name
-    }
-
     switch (type) {
       case 'Group':
-        app.collections[this.name].records = {
-          'Groups': [],
-          'Count': []
-        }
-        this.process = function(object) {
+        this.output = ['Groups', 'Count']
+        this.process = function (object) {
           group(object, this.inputColumns[0], app.collections[this.name])
         }
         this.inputColumns.length = 1
@@ -85,11 +77,11 @@ class Stat {
         this.inputColumns.length = 2
         break
     }
-    console.log(this)
   }
 }
+*/
 
-var querify = new Querify (['run','url','search','searchColumn','strictSearch','structure','charts'])
+var querify = new Querify(['run', 'url', 'search', 'searchColumn', 'strictSearch', 'structure', 'charts'])
 
 var rs
 
@@ -102,17 +94,17 @@ var app = new Vue({
     horizontal: 'center',
     duration: 4000,
     chartOptions: {
-            lineSmooth: false
+      lineSmooth: false
     },
     columns: [],
-    item: '', //iterative xml node
+    item: '', // Iterative xml node
     delimiter: ',',
     search: '',
     searchArr: [],
     searchColumn: '',
     strictSearch: true,
     processed: 0,
-    total: 0, //total records loaded to memory
+    total: 0, // Total records loaded to memory
     structure: {
       showAll: true,
       newColumns: []
@@ -137,7 +129,7 @@ var app = new Vue({
     isStreamLoadingNow: false,
     wasStreamLoaded: false,
     w: 0,
-    statTypes: ['Group'],
+//  statTypes: ['Group'],
     stats: [],
     chartTypes: ['Bar', 'Line', 'Pie'],
     charts: [],
@@ -172,8 +164,8 @@ var app = new Vue({
   methods: {
     load: load,
     save: save,
-    open: function() {
-      history.pushState(null, null, '/editor/');
+    open: function () {
+      history.pushState(null, null, '/editor/')
       this.run = false
       this.search = ''
       this.searchArr = []
@@ -187,29 +179,28 @@ var app = new Vue({
       this.resetState()
       this.isStreamAnalyzed = false
     },
-    notify: function(message) {
+    notify: function (message) {
       this.notifyMessage = message
-      this.$refs.snackbar.open();
+      this.$refs.snackbar.open()
     },
-    generateLink: function() {
+    generateLink: function () {
       var copyLink = document.querySelector('#query')
       copyLink.select()
       var successful = document.execCommand('copy')
       var msg = successful ? 'Copied to the clipboard' : 'Error happened'
-      app.notify(msg);
+      app.notify(msg)
     },
-    analyzeFiles: function(event) {
+    analyzeFiles: function (event) {
       analyzeFiles(event.target.files)
     },
-    resetState: function() {
+    resetState: function () {
       this.total = 0
       this.processed = 0
       for (var collectionName in this.collections) {
         this.collections[collectionName].length = 0
-        if (collectionName.toLowerCase() == 'main') {
+        if (collectionName.toLowerCase() === 'main') {
           this.collections[collectionName].records = {}
-        }
-        else {
+        } else {
           var groupCollection = this.collections[collectionName]
           for (var column in groupCollection.records) {
             groupCollection.records[column] = []
@@ -218,9 +209,16 @@ var app = new Vue({
       }
     },
     addStat: function (type) {
-      this.stats.push(new Stat(type))
+      var newStat = new Stats[type]()
+      newStat.name = type + '.' + (this.stats.length + 1)
+      this.stats.push(newStat)
+      this.collections[newStat.name] = newStat.output
+      this.collections[newStat.name].display = true
+      this.collections[newStat.name].save = true
+      this.collections[newStat.name].name = newStat.name+'.Output'
     },
     removeStat: function (index) {
+      delete this.collections[this.stats[index].name]
       this.stats.splice(index, 1)
     },
     addChart: function (type) {
@@ -255,6 +253,9 @@ var app = new Vue({
     }
   },
   computed: {
+    statTypes: function() {
+      return Object.keys(Stats)
+    },
     streamName: function () {
       return (this.file !== undefined) ? this.file.name : this.url.slice(this.url.lastIndexOf('/') + 1, this.url.search(/tsv|csv/g) + 3)
     },
@@ -374,7 +375,6 @@ function processStreamStructure (columns) {
           app.collections.main.records[prop].push(flatObj[prop])
         }
         app.collections.main.length += 1
-        console.log(obj)
       } else {
         rs.pause()
       }
@@ -446,6 +446,12 @@ function load () {
   // Remove 'scroll' event listener that resumes stream
   document.removeEventListener('scroll', resumeStreamIfBottom)
 
+  // Initialize all stream algorithms
+  app.stats.forEach((stat) => {
+    // if (typeof stat.init === 'function') 
+    stat.init()
+  })
+
   if (app.plotStream.display) {
     var canvas = document.getElementById('canvas')
     var ctx = canvas.getContext('2d')
@@ -483,8 +489,8 @@ function load () {
         ctx.fillRect(x,y,2,2)
       }
 
-      //Feed the object to all stat functions
-      app.stats.forEach((stat)=>{
+      // Feed the object to all stat functions
+      app.stats.forEach((stat) => {
         stat.process(obj)
       })
 

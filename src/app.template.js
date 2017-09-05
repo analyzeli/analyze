@@ -1,31 +1,14 @@
 module.exports = `
     <div id="app">
-      <div class="choose-file" v-if="!isStreamAnalyzed">
-        <md-icon class="md-size-2x md-primary">arrow_downward</md-icon>
-        <h1>Drag and drop files here</h1>
-        <p>or use the input field below</p>
-        <md-input-container>
-          <label>Local CSV or XML file</label>
-          <md-file @change.native="analyzeFiles"></md-file>
-        </md-input-container>
-        <p>or paste a link</p>
-        <md-input-container :class="{'md-input-invalid': httpError.message}">
-          <label>Link to CSV or XML file</label>
-          <md-input v-model="url" @blur.native="analyzeUrl"></md-input>
-          <md-icon style="cursor: pointer;">link</md-icon>
-          <span class="md-error">{{ httpError.message }}</span>
-        </md-input-container>
-      </div>
-
-      <div class="sidebar" v-if="isStreamAnalyzed">
+      <div class="sidebar">
         <md-toolbar>
           <h2 class="something-like-logo" style="flex: 1">I>&nbsp;&nbsp;infodiz</h2>
-          <md-button class="md-primary md-raised" v-on:click.native="open">
+          <md-button class="md-primary md-raised" v-if="isStreamAnalyzed" v-on:click.native="open">
             Open
           </md-button>
         </md-toolbar>
        
-        <md-list>
+        <md-list :class="{hidden: (!isStreamAnalyzed || isStreamLoadingNow) }">
         
         <!-- FILTER/SEARCH -->
         <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
@@ -132,7 +115,7 @@ module.exports = `
                 </md-menu>
 
                 <!-- Stat blocks -->
-                <md-card class="stat-card md-primary" v-for="(stat,index) in stats" :key="stat.name">
+                <md-card class="stat-card md-primary" v-for="(stat, index) in stats" :key="stat.name">
                   <md-card-header>
                     <md-card-header-text>
                       <div class="md-subhead"> {{ stat.name }} </div>
@@ -150,11 +133,20 @@ module.exports = `
                     </md-menu>
                   </md-card-header>
                   <md-card-content>
-                    <md-input-container v-for="(input,index) in stat.inputColumns" :key="index">
-                      <label>Select input ({{ index }})</label>
-                      <md-select v-model="stat.inputColumns[index]">
-                        <md-option v-for="column in columns" v-bind:value="column" :key="column">{{ column }}</md-option>
+                    <md-input-container v-for="(prop, key) in stat.props" :key="key">
+                      <label>{{ key }}</label>
+                      <md-select v-model="prop.value" v-if="prop.type === 'Column'">
+                        <md-option 
+                          v-for="column in columns" 
+                          :value="column" 
+                          :key="column"
+                        >{{ column }}</md-option>
                       </md-select>
+                      <md-input
+                        type="number"
+                        v-model="prop.value" 
+                        v-if="prop.type === 'Number'" 
+                      ></md-input>
                     </md-input-container>
                   </md-card-content>
                 </md-card>
@@ -259,9 +251,26 @@ module.exports = `
         </md-list-item>
 
         </md-list>
-        <md-button v-if="!isStreamLoadingNow && !wasStreamLoaded" class="md-raised md-primary control-button" v-on:click.native="reloadStream"><md-icon>play_arrow</md-icon> Run</md-button>
-        <md-button v-if="isStreamLoadingNow" v-on:click.native="stopStream" class="md-raised md-accent control-button"><md-icon>stop</md-icon> Stop</md-button>
-        <md-button v-if="!isStreamLoadingNow && wasStreamLoaded" v-on:click.native="reloadStream" class="md-raised md-primary control-button"><md-icon>replay</md-icon> Rerun</md-button>
+        <md-button v-if="!isStreamLoadingNow && !wasStreamLoaded && isStreamAnalyzed" class="md-raised md-primary control-button" v-on:click.native="reloadStream"><md-icon>play_arrow</md-icon> Run</md-button>
+        <md-button v-if="isStreamLoadingNow && isStreamAnalyzed" v-on:click.native="stopStream" class="md-raised md-accent control-button"><md-icon>stop</md-icon> Stop</md-button>
+        <md-button v-if="!isStreamLoadingNow && wasStreamLoaded && isStreamAnalyzed" v-on:click.native="reloadStream" class="md-raised md-primary control-button"><md-icon>replay</md-icon> Rerun</md-button>
+      </div>
+
+      <div class="content choose-file" v-if="!isStreamAnalyzed">
+        <md-icon class="md-size-2x md-primary">arrow_downward</md-icon>
+        <h1>Drag and drop files here</h1>
+        <p>or use the input field below</p>
+        <md-input-container>
+          <label>Local CSV or XML file</label>
+          <md-file @change.native="analyzeFiles"></md-file>
+        </md-input-container>
+        <p>or paste a link</p>
+        <md-input-container :class="{'md-input-invalid': httpError.message}">
+          <label>Link to CSV or XML file</label>
+          <md-input v-model="url" @blur.native="analyzeUrl"></md-input>
+          <md-icon style="cursor: pointer;">link</md-icon>
+          <span class="md-error">{{ httpError.message }}</span>
+        </md-input-container>
       </div>
 
       <div class="content" v-if="isStreamAnalyzed">
@@ -304,7 +313,7 @@ module.exports = `
               :options="chartOptions"
               style="max-width: 400px" >
           </chartist>
-          <table v-if="collection.display && collection.length > 0">
+          <table v-if="collection.display">
             <thead>
               <tr>
                 <th></th>
