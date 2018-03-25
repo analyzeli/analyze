@@ -7,9 +7,7 @@ module.exports = `
             Open
           </md-button>
         </md-toolbar>
-       
         <md-list :class="{hidden: (!isStreamAnalyzed || isStreamLoadingNow) }">
-        
         <!-- FILTER/SEARCH -->
         <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
           <md-icon class="md-primary">filter_list</md-icon>

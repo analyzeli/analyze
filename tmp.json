@@ -1,0 +1,10 @@
+  "browser": {  
+    "vue": "vue/dist/vue.common",
+    "jquery": "jquery/dist/jquery.js",
+    "materialize": "materialize-css/bin/materialize.js"
+  },
+  "browserify-shim": {
+    "jquery": "$",
+    "materialize": "materialize"
+  },
+
