@@ -1,5 +1,5 @@
 {
-  "name": "infodiz-editor",
+  "name": "analyze",
   "version": "0.0.1",
   "description": "Data manipulation in a browser",
   "main": "index.html",
@@ -24,6 +24,7 @@
     "envify": "^4.0.0",
     "http-server": "^0.11.1",
     "nodemon": "^1.17.2",
+    "uglify-js": "^3.3.16",
     "vueify": "^9.4.1"
   },
   "dependencies": {
@@ -54,6 +55,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/infodiz/editor.git"
+    "url": "git+https://github.com/analyzeli/analyze.git"
   }
 }
