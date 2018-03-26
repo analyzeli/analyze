@@ -62,8 +62,15 @@ h1, h2, h3, .something-like-logo {
   z-index:2;
 }
 
+.md-toolbar {
+  justify-content: space-between;
+}
+.md-toolbar .logo {
+  width: 108px;
+}
+
 .sidebar .md-theme-default.md-toolbar {
-  background-color: #3f4194;
+  background-color: #1d1f5a;
 }
 
 .sidebar .control-button {
