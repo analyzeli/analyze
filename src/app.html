@@ -335,6 +335,7 @@
     <p id="text"></p>
     <textarea id="query" v-if="url.length" rows="5">{{ newQuery }} </textarea>
   </div>
+
   <md-snackbar md-position="bottom center" ref="snackbar" md-duration="3000">
     <span>{{ notifyMessage }}</span>
     <md-button class="md-accent" md-theme="light-blue" @click.native="$refs.snackbar.close()">Retry</md-button>

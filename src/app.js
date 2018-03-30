@@ -4,8 +4,8 @@ const through2 = require('through2') // Transform stream
 const filter = require('stream-filter') // Filter string and obj streams
 const FileSaver = require('file-saver')
 const http = require('stream-http') // XHR as a stream
-const getCsvStreamStructure = require('./get-csv-stream-structure.js') // Get CSV header
-const getXmlStreamStructure = require('./get-xml-stream-structure.js') // Get XML nodes and repeated node
+const getCsvStreamStructure = require('./utils/get-csv-stream-structure.js') // Get CSV header
+const getXmlStreamStructure = require('./utils/get-xml-stream-structure.js') // Get XML nodes and repeated node
 const splitStream = require('./utils/split-stream')
 const parseStream = require('./utils/parse-stream')
 // const xmlObjects = require('xml-objects') // Parse XML
@@ -28,7 +28,7 @@ const dnd = require('drag-and-drop-files') // Handle Drag and Drop events
 // const group = require('./group.js') //Group by a properties
 
 // Other
-const Querify = require('./querify.js')
+const Querify = require('./utils/querify.js')
 // const queryString = require('query-string')
 
 function showApp () {
@@ -103,17 +103,25 @@ function getStreamStructure (rs, type) {
   }
 }
 
+let counter = 0
+// Load some more data when scroll to bottom
+function resumeStreamIfBottom () {
+  if ((document.body.scrollHeight - window.innerHeight - window.scrollY) < 100) {
+    counter = 0
+    rs.resume()
+  }
+}
+
 // 2.1 Store data structure, trigger loader if needed
 function processStreamStructure (columns) {
   const app = this
-  let counter = 0
   app.columns = columns.slice(0)
   app.isStreamAnalyzed = true
   if (app.searchColumn.length === 0) app.searchColumn = app.columns[0]
   if (app.url && app.url.length && app.run) {
-    Vue.nextTick(function () {
+    setTimeout(function () {
       load()
-    })
+    }, 200)
   }
   showApp()
 
@@ -137,14 +145,6 @@ function processStreamStructure (columns) {
       }
     })
 
-  // Load some more data when scroll to bottom
-  function resumeStreamIfBottom () {
-    if ((document.body.scrollHeight - window.innerHeight - window.scrollY) < 100) {
-      counter = 0
-      rs.resume()
-    }
-  }
-
   document.addEventListener('scroll', resumeStreamIfBottom, false)
 }
 
@@ -154,15 +154,15 @@ function load () {
   app.isStreamLoadingNow = true // Currently loading stream
   app.wasStreamLoaded = true // Stream already opened (for Reload)
   app.searchArr = (app.search.length > 0)
-                ? app.search.split(',').map((el) => el.trim())
-                : []
+    ? app.search.split(',').map((el) => el.trim())
+    : []
 
   // Remove 'scroll' event listener that resumes stream
   document.removeEventListener('scroll', resumeStreamIfBottom)
 
   // Initialize all stream algorithms
   app.stats.forEach((stat) => {
-    // if (typeof stat.init === 'function') 
+    // if (typeof stat.init === 'function')
     stat.init()
   })
 
@@ -189,18 +189,18 @@ function load () {
       callback()
     }), { end: false })
     .pipe(splitStream(app.fileType, app.item), { end: false }) // Split text stream into text blocks (one for each record)
-    .pipe(filterTextStream(), { end: false }) // Filter text blocks if needed
+    .pipe(filterTextStream(app.searchArr, app.fileType), { end: false }) // Filter text blocks if needed
     .pipe(parseStream(app.fileType, app.delimiter), { end: false }) // 'end' <boolean> End the writer when the reader ends. Defaults to true
-    .pipe(filterObjectStream(), { end: false })
+    .pipe(filterObjectStream(app.searchArr, app.searchColumn, app.strictSearch), { end: false })
     .pipe(restructureObjectStream(app.structure.newColumns, app.structure.showAll), { end: false })
     .on('data', function (obj) {
       // Here the pipeline throws parsed, filtered, not flat objects
       // Plot stream
       if (app.plotStream.display) {
         ctx.fillStyle = '#000'
-        var x = parseFloat(path.get(obj,app.plotStream.data.xColumn))*(app.plotStream.xSize/(app.plotStream.data.xRange.max - app.plotStream.data.xRange.min)) - app.plotStream.data.xRange.min
-        var y = app.plotStream.ySize - (parseFloat(path.get(obj,app.plotStream.data.yColumn))*(app.plotStream.ySize/(app.plotStream.data.yRange.max - app.plotStream.data.yRange.min)) - app.plotStream.data.yRange.min)
-        ctx.fillRect(x,y,2,2)
+        var x = parseFloat(path.get(obj, app.plotStream.data.xColumn)) * (app.plotStream.xSize / (app.plotStream.data.xRange.max - app.plotStream.data.xRange.min)) - app.plotStream.data.xRange.min
+        var y = app.plotStream.ySize - (parseFloat(path.get(obj, app.plotStream.data.yColumn)) * (app.plotStream.ySize / (app.plotStream.data.yRange.max - app.plotStream.data.yRange.min)) - app.plotStream.data.yRange.min)
+        ctx.fillRect(x, y, 2, 2)
       }
 
       // Feed the object to all stat functions
@@ -208,8 +208,8 @@ function load () {
         stat.process(obj)
       })
 
-      //Store object in the main collection
-      if (app.collections.main.display || app.collections.main.save){
+      // Store object in the main collection
+      if (app.collections.main.display || app.collections.main.save) {
         var flatObj = flat(obj)
         for (var prop in flatObj) {
           if (app.collections.main.records[prop] === undefined) {
@@ -223,16 +223,50 @@ function load () {
       app.total += 1
     })
 
-  rs.on('end', function(){
-      app.notify('All data loaded')
-      app.isStreamLoadingNow = false
-    })
+  rs.on('end', () => {
+    app.notify('All data loaded')
+    app.isStreamLoadingNow = false
+  })
+}
+
+// 3.0.1
+function filterTextStream (searchArr, fileType) {
+  let header = true
+  return filter((line) => {
+    let l = searchArr.length
+    let found = (l === 0)
+    let i = 0
+    if ((header) && (fileType === 'csv')) {
+      header = false
+      return true
+    }
+    while ((!found) && (i < l)) {
+      found = found || (line.indexOf(searchArr[i]) >= 0)
+      i += 1
+    }
+    return found
+  })
+}
+
+// 3.0.4 Object filter stream
+function filterObjectStream (searchArr, searchColumn, strictSearch) {
+  return filter.obj((obj) => {
+    const l = searchArr.length
+    const value = path.get(obj, searchColumn)
+    let found = (l === 0)
+    let i = 0
+    while ((!found) && (i < l)) {
+      found = found || ((strictSearch === true) && (value === searchArr[i])) || ((strictSearch === false) && (value.indexOf(searchArr[i]) >= 0))
+      i += 1
+    }
+    return found
+  })
 }
 
 // Open new file or url
 function open () {
   const app = this
-  history.pushState(null, null, '/editor/')
+  window.history.pushState(null, null, '/analyze/')
   app.run = false
   app.search = ''
   app.searchArr = []
@@ -281,7 +315,7 @@ function resetState () {
 }
 
 var appOptions = {
-  data: function() {
+  data: function () {
     return {
       notifyMessage: '',
       vertical: 'bottom',
@@ -373,7 +407,7 @@ var appOptions = {
       this.collections[newStat.name] = newStat.output
       this.collections[newStat.name].display = true
       this.collections[newStat.name].save = true
-      this.collections[newStat.name].name = newStat.name+'.Output'
+      this.collections[newStat.name].name = newStat.name + '.Output'
     },
     removeStat: function (index) {
       delete this.collections[this.stats[index].name]
@@ -413,22 +447,22 @@ var appOptions = {
     }
   },
   computed: {
-    statTypes: function() {
+    statTypes () {
       return Object.keys(Stats)
     },
-    streamName: function () {
+    streamName () {
       return (this.file !== undefined) ? this.file.name : this.url.slice(this.url.lastIndexOf('/') + 1, this.url.search(/tsv|csv/g) + 3)
     },
-    streamInfo: function () {
-      return (this.file !== undefined) ? 'Last modified: ' + this.file.lastModifiedDate.toLocaleDateString("en-US") : 'Source: ' + this.url
+    streamInfo () {
+      return (this.file !== undefined) ? 'Last modified: ' + this.file.lastModifiedDate.toLocaleDateString('en-US') : 'Source: ' + this.url
     },
-    selectedColumns: function () {
+    selectedColumns () {
       return (this.structure.showAll) ? this.columns : this.structure.newColumns
     },
-    newQuery: function () {
+    newQuery () {
       let app = this
       if (app.url.length > 0) {
-        return location.origin + location.pathname + querify.getQueryString({
+        return window.location.origin + window.location.pathname + querify.getQueryString({
           run: 'true',
           url: app.url,
           search: app.search,
@@ -452,8 +486,8 @@ var appOptions = {
     // Init drag and drop or throw error
     let app = this
     if (window.File && window.FileReader && window.FileList && window.Blob) {
-      if (location.search) {
-        var queryObj = querify.getQueryObject(location.search)
+      if (window.location.search) {
+        var queryObj = querify.getQueryObject(window.location.search)
         setTimeout(function () {
           app = Object.assign(app, queryObj)
           app.analyzeUrl(app.url, app.httpError)
@@ -465,48 +499,12 @@ var appOptions = {
         })
       }
     } else {
-      alert("Your browser doesn't support File API");
+      window.alert(`Your browser doesn't support File API`)
     }
   }
 }
 
 // var appInitial = Object.apply({}, appOptions)
-
-
-// 3.0.1
-function filterTextStream () {
-  var header = true
-  return filter(function (line) {
-    var l = app.searchArr.length
-    var found = (l === 0)
-    var i = 0
-
-    if ((header) && (app.fileType === 'csv')) {
-      header = false
-      return true
-    }
-    while ((!found) && (i < l)) {
-      found = found || (line.indexOf(app.searchArr[i]) >= 0)
-      i += 1
-    }
-    return found
-  })
-}
-
-// 3.0.4 Object filter stream
-function filterObjectStream () {
-  return filter.obj(function (obj) {
-    var l = app.searchArr.length
-    var found = (l === 0)
-    var i = 0
-    var value = path.get(obj, app.searchColumn)
-    while ((!found) && (i < l)) {
-      found = found || ((app.strictSearch === true) && (value === app.searchArr[i])) || ((app.strictSearch === false) && (value.indexOf(app.searchArr[i]) >= 0))
-      i += 1
-    }
-    return found
-  })
-}
 
 // 3.0.5 Object restructuring stream
 function restructureObjectStream (columns, showAllColumns) {
@@ -524,14 +522,12 @@ function restructureObjectStream (columns, showAllColumns) {
   })
 }
 
-
-
-function collectionToObjects(collection) {
+function collectionToObjects (collection) {
   var objects = []
-  for (var i = 0; i < collection.length; i++ ) {
+  for (var i = 0; i < collection.length; i++) {
     var object = {}
     for (var column in collection.records) {
-      if (collection.records[column][i] != undefined) {
+      if (collection.records[column][i] !== undefined) {
         object[column] = collection.records[column][i]
       }
     }
@@ -540,7 +536,7 @@ function collectionToObjects(collection) {
   return objects
 }
 
-function getCollectionHeader(collection) {
+function getCollectionHeader (collection) {
   var header = []
   for (var column in collection.records) {
     header.push(column)
@@ -549,19 +545,20 @@ function getCollectionHeader(collection) {
 }
 
 // 4. Save results to a file
-function save(collectionName, type) {
+function save (collectionName, type) {
+  let app = this
   var objects = collectionToObjects(app.collections[collectionName])
+  var blob
   switch (type) {
     case 'csv':
       var header = getCollectionHeader(app.collections[collectionName])
-      var blob = new Blob([json2csv({data: objects, fields: header})], {type: "text/plain;charset=utf-8"})
+      blob = new window.Blob([json2csv({data: objects, fields: header})], {type: 'text/plain;charset=utf-8'})
       break
     case 'json':
-      var blob = new Blob([JSON.stringify(objects)], {type: "text/plain;charset=utf-8"})
+      blob = new window.Blob([JSON.stringify(objects)], {type: 'text/plain;charset=utf-8'})
       break
   }
   FileSaver.saveAs(blob, app.streamName.split('.')[0] + '-' + collectionName.toLowerCase() + '.' + type)
 }
-
 
 module.exports = appOptions
