@@ -46,13 +46,31 @@ class Chart {
   }
 }
 
-var TopK = require('./stat/topk')
+const TopK = require('./stat/topk')
 // var Group = require('./stat/group')
-var Stats = {TopK}
-var querify = new Querify(['run', 'url', 'search', 'searchColumn', 'strictSearch', 'structure', 'charts'])
+const Stats = {TopK}
+const querify = new Querify(['run', 'url', 'search', 'searchColumn', 'strictSearch', 'structure', 'charts'])
 
 // Read stream
-var rs
+let rs
+
+function preload (event) {
+  const app = this // context: app object
+
+  // If event exists - it's a file input.
+  if (event) {
+    // Store file info in app's data
+    app.file = event.target.files[0]
+    app.fileType = (app.file.type.slice(app.file.type.indexOf('/') + 1))
+    app.fileSize = app.file.size
+    // Initialize read stream
+    rs = analyzeFiles()
+  } else {
+    // Preload was launched without arguments - source is url
+    // ...
+  }
+  getStreamStructure(rs, app.fileType)
+}
 
 // 1a. Prepare stream (from URL)
 function analyzeUrl (url, error) {
@@ -391,6 +409,7 @@ var appOptions = {
     }
   },
   methods: {
+    preload,
     load,
     save,
     open,
