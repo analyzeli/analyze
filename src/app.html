@@ -2,10 +2,14 @@
   <div class="sidebar">
     <md-toolbar class="logo-bar">
       <img class="logo" src="images/logo.png"/>
-      <md-button class="md-primary md-raised" v-if="isStreamAnalyzed" v-on:click.native="open">
+      <md-button class="md-primary md-raised" v-if="!states.loader" v-on:click.native="open">
         Open
       </md-button>
     </md-toolbar>
+    <md-tabs v-if="sources.length">
+      <md-tab v-for="source in sources" :md-label="source.name">
+      </md-tab>
+    </md-tabs>
     <md-list :class="{hidden: (!isStreamAnalyzed || isStreamLoadingNow) }">
     <!-- FILTER/SEARCH -->
     <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
@@ -253,13 +257,13 @@
     <md-button v-if="!isStreamLoadingNow && wasStreamLoaded && isStreamAnalyzed" v-on:click.native="reloadStream" class="md-raised md-primary control-button"><md-icon>replay</md-icon> Rerun</md-button>
   </div>
 
-  <div class="content choose-file" v-if="!isStreamAnalyzed">
+  <div class="content choose-file" v-if="states.loader">
     <md-icon class="md-size-2x md-primary">arrow_downward</md-icon>
     <h1>Drag and drop files here</h1>
     <p>or use the input field below</p>
     <md-input-container>
       <label>Local CSV or XML file</label>
-      <md-file @change.native="analyzeFiles"></md-file>
+      <md-file @change.native="loadFiles" multiple></md-file>
     </md-input-container>
     <p>or paste a link</p>
     <md-input-container :class="{'md-input-invalid': httpError.message}">
@@ -270,7 +274,14 @@
     </md-input-container>
   </div>
 
-  <div class="content" v-if="isStreamAnalyzed">
+  <div class="content" v-if="!states.loader">
+    <md-tabs v-if="collections.length" @change="showCollection($event)">
+      <md-tab
+        v-for="(collection, n) in collections" 
+        :md-label="collection.name" 
+        @change="showCollection(n)">
+      </md-tab>
+    </md-tabs>
     <md-button v-if="url.length" class="md-fab md-primary md-fab-top-right" id="fab" @click.native="generateLink()">
       <md-icon>share</md-icon>
       <md-tooltip md-direction="bottom">Generate link</md-tooltip>
@@ -288,12 +299,13 @@
       <canvas id="canvas" v-bind:width="plotStream.xSize" v-bind:height="plotStream.ySize"></canvas>
     </div>
 
-    <div v-for="(collection, collectionName) in collections" :key="collectionName" v-if="collection.display || collection.save">
-      <h3>Collection: <strong class="primary-color">{{ collection.name }}</strong></h3>
+    <div v-if="collections.length && (collections[activeCollection].display || collections[activeCollection].save)">
+      <h3>Collection: <strong class="primary-color">{{ collections[activeCollection].name }}</strong></h3>
+      <!--
       <chartist
           v-for="chart in charts"
           :key="chart.name"
-          v-if="(collection.length > 1) && (chart.inputCollection == collectionName) && (chart.type != 'Pie')"
+          v-if="(collections[activeCollection]collection.length > 1) && (chart.inputCollection == collectionName) && (chart.type != 'Pie')"
           ratio="ct-major-second"
           :type="chart.type"
           :data="{labels:collection.records[chart.labelColumn], series:[collection.records[chart.inputColumn]]}"
@@ -309,27 +321,28 @@
           :data="{labels:collection.records[chart.labelColumn], series:collection.records[chart.inputColumn]}"
           :options="chartOptions"
           style="max-width: 400px" >
-      </chartist>
-      <table v-if="collection.display">
+        </chartist>
+      -->
+      <table v-if="collections[activeCollection].display">
         <thead>
           <tr>
             <th></th>
-            <th v-for="(columnValues, columnName) in collection.records">
+            <th v-for="(columnValues, columnName) in collections[activeCollection].records">
               {{ columnName }}
             </th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="index in collection.length" :key="index">
+          <tr v-for="index in collections[activeCollection].length" :key="index">
             <td style="color:#AAA; font-size:11px; border: 0; text-align: right; padding-right: 10px;"> {{ index }} </td>
-            <td v-for="(columnValues,columnName) in collection.records">
+            <td v-for="(columnValues,columnName) in collections[activeCollection].records">
               {{ columnValues[index-1] }}
             </td>
           </tr>
         </tbody>
       </table>
-      <md-button class="md-raised md-dense" v-if="collection.length && collection.save" v-on:click.native="save(collectionName,'csv')"><md-icon class="primary-color">file_download</md-icon> Save to CSV</md-button>
-      <md-button class="md-raised md-dense" v-if="collection.length && collection.save" v-on:click.native="save(collectionName,'json')"><md-icon class="primary-color">file_download</md-icon> Save to JSON</md-button>
+      <md-button class="md-raised md-dense" v-if="collections[activeCollection].length && collections[activeCollection].save" v-on:click.native="save(collections[activeCollection].name, 'csv')"><md-icon class="primary-color">file_download</md-icon> Save to CSV</md-button>
+      <md-button class="md-raised md-dense" v-if="collections[activeCollection].length && collections[activeCollection].save" v-on:click.native="save(collections[activeCollection].name, 'json')"><md-icon class="primary-color">file_download</md-icon> Save to JSON</md-button>
     </div>
     <p id="size"></p>
     <p id="text"></p>
