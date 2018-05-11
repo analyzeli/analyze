@@ -76,23 +76,26 @@ function preload (event) {
 */
 
 // 1a. Prepare stream (from URL)
-function analyzeUrl (url, error) {
+function loadUrl () {
   const app = this
   if (app.url && app.url.length) {
-    error.message = ''
-    var request = http.get(app.url, function (res) {
-      rs = res
-      rs.setEncoding('utf8')
-      if ((app.url.indexOf('csv') > 0) || (app.url.indexOf('tsv' > 0))) {
-        app.fileType = 'csv'
-      } else if (app.url.indexOf('xml') > 0) {
-        app.fileType = 'xml'
+    const request = http.get(app.url, (res) => {
+      res.setEncoding('utf8')
+      const source = {
+        stream: res,
+        name: app.url.slice(app.url.lastIndexOf('/') + 1, app.url.search(/tsv|csv|xml/g) + 3),
+        counter: 0
       }
-      app.getStreamStructure(rs, app.fileType)
+      if ((app.url.indexOf('csv') > 0) || (app.url.indexOf('tsv' > 0))) {
+        source.type = 'csv'
+      } else if (app.url.indexOf('xml') > 0) {
+        source.type = 'xml'
+      }
+      app.loadSources([source])
     })
     request.on('error', function (e) {
-      showApp()
-      error.message = e.message
+      console.log(e)
+      app.showError(e.message)
     })
   }
 }
@@ -104,7 +107,6 @@ function loadFiles (event) {
   const app = this
   const files = event.target.files
   const newSources = []
-
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
     const source = {
@@ -113,6 +115,7 @@ function loadFiles (event) {
       type: file.type.slice(file.type.indexOf('/') + 1), // file type (csv or xml)
       size: file.size, // size
       stream: new ReadStream(file), // node readable stream
+      preview: true, // source just opened, preload it when scroll
       counter: 0 // number of rows readed
     }
     source.stream.setEncoding('utf8')
@@ -169,14 +172,6 @@ async function loadSources (sources) {
   }
   app.states.loader = false
 
-  document.addEventListener('scroll', function () {
-    if ((document.body.scrollHeight - window.innerHeight - window.scrollY) < 100) {
-      console.log('Loading more data...')
-      app.collections[app.activeCollection].source.counter = 0
-      app.collections[app.activeCollection].source.previewStream.resume()
-      // rs.resume()
-    }
-  }, false)
   // showApp()
 }
 
@@ -249,11 +244,11 @@ function resumeStreamIfBottom () {
 */
 
 // 2.1 Store data structure, trigger loader if needed
+/*
 function processStreamStructure (columns) {
   const app = this
   app.columns = columns.slice(0)
   app.isStreamAnalyzed = true
-  if (app.searchColumn.length === 0) app.searchColumn = app.columns[0]
   if (app.url && app.url.length && app.run) {
     setTimeout(function () {
       load()
@@ -283,6 +278,7 @@ function processStreamStructure (columns) {
 
   document.addEventListener('scroll', resumeStreamIfBottom, false)
 }
+*/
 
 // 3. Process stream
 function load () {
@@ -293,8 +289,8 @@ function load () {
     ? app.search.split(',').map((el) => el.trim())
     : []
 
-  // Remove 'scroll' event listener that resumes stream
-  document.removeEventListener('scroll', resumeStreamIfBottom)
+  // TODO: REMOVE PREVIEW FLAG
+  // document.removeEventListener('scroll', resumeStreamIfBottom)
 
   // Initialize all stream algorithms
   app.stats.forEach((stat) => {
@@ -462,6 +458,10 @@ var appOptions = {
         progress: false
       },
       notifyMessage: '',
+      error: {
+        content: 'Error message',
+        button: 'Ok'
+      },
       vertical: 'bottom',
       horizontal: 'center',
       duration: 4000,
@@ -544,14 +544,14 @@ var appOptions = {
     open,
     notify,
     generateLink,
+    loadUrl,
     loadFiles,
     loadSources,
     loadSource,
     getStreamStructure,
-    processStreamStructure,
     resetState,
     showCollection (i) {
-      console.log('Switching to collection: ', i)
+      console.log('Switching to collection: ', i, this.collections[i].name)
       this.activeCollection = i
     },
     addStat: function (type) {
@@ -573,10 +573,6 @@ var appOptions = {
     removeChart: function (index) {
       this.charts.splice(index, 1)
     },
-    analyzeUrl,
-    analyzeUrlFromInput: function () {
-      this.analyzeUrl(this.url, this.httpError)
-    },
     stopStream: function () {
       rs.pause()
       rs.unpipe()
@@ -585,7 +581,7 @@ var appOptions = {
     reloadStream: function () {
       // Remove event listener that auto resumes stream when bottom of a page reached
       let app = this
-      document.removeEventListener('scroll', resumeStreamIfBottom)
+      // document.removeEventListener('scroll', resumeStreamIfBottom)
       this.resetState()
       if (this.fileSize) {
         rs = new ReadStream(this.file)
@@ -598,6 +594,14 @@ var appOptions = {
           app.load()
         })
       }
+    },
+    showError (error) {
+      console.log('Show error: ', error)
+      this.error.content = error
+      this.$refs['error'].open()
+    },
+    closeError () {
+      this.$refs['error'].close()
     }
   },
   computed: {
@@ -637,17 +641,34 @@ var appOptions = {
     // }
   },
   mounted () {
-    // Init drag and drop or throw error
+    // When app loaded:
     let app = this
+    // Check if a browser supports needed API
     if (window.File && window.FileReader && window.FileList && window.Blob) {
+      // Add scroll event that preloads some data
+      document.addEventListener('scroll', function () {
+        if ((document.body.scrollHeight - window.innerHeight - window.scrollY) < 100) {
+          console.log('[Event] Bottom of screen')
+          const source = app.collections[app.activeCollection].source
+          if (source.preview) {
+            console.log('Resuming a preview stream of ', source.name)
+            source.counter = 0
+            source.previewStream.resume()
+          }
+          // rs.resume()
+        }
+      }, false)
+
+      // Check if there're any params of the GET request
       if (window.location.search) {
         var queryObj = querify.getQueryObject(window.location.search)
         setTimeout(function () {
           app = Object.assign(app, queryObj)
-          app.analyzeUrl(app.url, app.httpError)
+          app.loadUrl()
         }, 100)
       } else {
         showApp()
+        // Attach drag-and-drop event
         dnd(document.body, (files) => {
           app.loadFiles({target: {files}})
         })

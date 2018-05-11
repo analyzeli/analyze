@@ -268,14 +268,13 @@
     <p>or paste a link</p>
     <md-input-container :class="{'md-input-invalid': httpError.message}">
       <label>Link to CSV or XML file</label>
-      <md-input v-model="url" @blur.native="analyzeUrlFromInput"></md-input>
+      <md-input v-model="url" @blur.native="loadUrl"></md-input>
       <md-icon style="cursor: pointer;">link</md-icon>
-      <span class="md-error">{{ httpError.message }}</span>
     </md-input-container>
   </div>
 
   <div class="content" v-if="!states.loader">
-    <md-tabs v-if="collections.length" @change="showCollection($event)">
+    <md-tabs class="md-transparent" md-fixed v-if="collections.length" @change="showCollection($event)">
       <md-tab
         v-for="(collection, n) in collections" 
         :md-label="collection.name" 
@@ -349,8 +348,16 @@
     <textarea id="query" v-if="url.length" rows="5">{{ newQuery }} </textarea>
   </div>
 
+  <!-- Extra information  -->
   <md-snackbar md-position="bottom center" ref="snackbar" md-duration="3000">
     <span>{{ notifyMessage }}</span>
     <md-button class="md-accent" md-theme="light-blue" @click.native="$refs.snackbar.close()">Retry</md-button>
   </md-snackbar>
+
+  <!-- Alerts and errors -->
+  <md-dialog-alert
+    :md-content="error.content"
+    :md-ok-text="error.button"
+    ref="error">
+  </md-dialog-alert>
 </div>
