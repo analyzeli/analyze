@@ -89,6 +89,10 @@ h1, h2, h3, .something-like-logo {
   background-color: white;
 }
 
+.sidebar .item-card {
+  margin-bottom: 15px;
+}
+
 .hidden {
   pointer-events: none;
   opacity: .4;
