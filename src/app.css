@@ -39,6 +39,33 @@ h1, h2, h3, .something-like-logo {
   color: #3f51b5;
 }
 
+.tabs {
+  display:flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-content: center;
+  align-items: center;
+}
+
+.tabs .tab {
+  display:flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-content: center;
+  align-items: center;
+  background-color: #DDD;
+}
+
+.tabs .active-tab {
+  background-color: #3f51b5;
+}
+
+.tabs .active-tab button {
+  color: white;
+}
+
 .something-like-logo {
   font-size: 22px;
   font-weight: 800;
@@ -51,14 +78,14 @@ h1, h2, h3, .something-like-logo {
 
 .sidebar {
   position: fixed;
-  resize: horizontal;
   width: 23%;
   top: 0px;
   left: 0px;
   bottom: 0px;
-  background-color: #EAEAEA;
+  background-color: #FFF;
   /*padding: 5px;*/
   overflow-y: scroll;
+  box-shadow: 0 0 20px rgba(0, 0, 0, .1);
   z-index:2;
 }
 
@@ -101,12 +128,14 @@ h1, h2, h3, .something-like-logo {
   margin-top: 10px;
   margin-bottom: 10px;
 }
+
 .content {
   position: relative;
   padding: 15px 25px;
   margin-left: 23%;
   z-index: 1;
 }
+
 #loading {
   background-color: blue;
   height: 3px;
@@ -114,6 +143,28 @@ h1, h2, h3, .something-like-logo {
   top: 0;
   left: 0;
 }
+
+/* COLLECTION NAME */
+.collection-name {
+  margin: 15px 0 30px 0;
+}
+
+.collection-name .md-input {
+  height: 40px;
+  font-size: 34px;
+}
+
+/* COLLECTION DASHBOARD */
+.dashboard {
+  padding: 5px 0 40px 0;
+}
+
+.dashboard .card {
+  width: 30%;
+}
+
+
+/* TABLE */
 .md-table .md-table-cell {
   position: static;
 }

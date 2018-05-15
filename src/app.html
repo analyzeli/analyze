@@ -7,17 +7,17 @@
       </md-button>
     </md-toolbar>
     <!-- Select an active source -->
-    <md-button-toggle class="md-raised md-primary" v-if="sources.length">
+    <md-button-toggle class="md-raised md-primary" md-single v-if="sources.length">
       <md-button 
         v-for="(source, i) in sources"
         v-on:click.native="showSource(i)"
-        :key="source.name"
+        :key="source.name + i"
         :class="{'md-toggle': (activeSource == i)}"
       > {{ source.name }} </md-button>
     </md-button-toggle>
 
-    <!-- Generate sisebar for each active source (source) -->
-    <md-list v-if="sources.length" v-for="source in [sources[activeSource]]" :class="{hidden: (states.loader || states.progress) }">
+    <!-- Generate sidebar for each active source (source) -->
+    <md-list v-if="sources.length" v-for="source in [sources[activeSource]]" :class="{hidden: (states.loader || source.loading) }">
       <!-- FILTER/SEARCH -->
       <md-list-item :md-expand-multiple="true">
         <md-icon class="md-primary">filter_list</md-icon>
@@ -325,9 +325,20 @@
       </md-list-item>
 
     </md-list>
-    <md-button v-if="sources[activeSource] && !sources[activeSource].loading" class="md-raised md-primary control-button" v-on:click.native="process(sources[activeSource])"><md-icon>play_arrow</md-icon> Run</md-button>
-    <md-button v-if="isStreamLoadingNow && isStreamAnalyzed" v-on:click.native="stopStream" class="md-raised md-accent control-button"><md-icon>stop</md-icon> Stop</md-button>
-    <md-button v-if="!isStreamLoadingNow && wasStreamLoaded && isStreamAnalyzed" v-on:click.native="reloadStream" class="md-raised md-primary control-button"><md-icon>replay</md-icon> Rerun</md-button>
+    <div v-if="sources[activeSource]" style="margin: 10px 16px;">
+      <md-card>
+        <md-card-header>
+          <div class="md-title">
+            Processed: {{ sources[activeSource].progress }}%
+          </div>
+          <div class="md-subhead">
+            Total: {{ (sources[activeSource].processed / (1024 ** 2)).toFixed(2)}}Mb of {{ (sources[activeSource].size / (1024 ** 2)).toFixed(2) }}Mb<br>
+          </div>
+        </md-card-header>
+        <md-button v-if="!sources[activeSource].loading" class="md-raised md-primary control-button" v-on:click.native="process(sources[activeSource])"><md-icon>play_arrow</md-icon> Run</md-button>
+        <md-button v-if="sources[activeSource].loading" v-on:click.native="stop(sources[activeSource])" class="md-raised md-accent control-button"><md-icon>stop</md-icon> Stop</md-button>
+      </md-card>
+    </div>
   </div>
 
   <div class="content choose-file" v-if="states.loader">
@@ -347,21 +358,37 @@
   </div>
 
   <div class="content" v-if="!states.loader">
-    <md-tabs class="md-transparent" md-fixed v-if="collections.length" @change="showCollection($event)">
+    <div 
+      class="tabs"
+      v-if="collections.length">
+      <div
+        v-for="(collection, i) in collections"
+        :key="collection.name + i"
+        :class="{'tab': true, 'active-tab': (activeCollection === i)}"
+        >
+        <md-button
+          v-on:click.native="showCollection(i)"
+        >
+          {{ collection.name }}
+        </md-button>
+        <md-button 
+          v-on:click.native="removeCollection(i)"
+          class="md-icon-button md-dense"
+        >
+          <md-icon>clear</md-icon>
+        </md-button>
+      </div>
+    </div>
+    <!--
+    <md-tabs class="md-transparent" md-fixed @change="showCollection($event)">
       <md-tab
-        v-for="(collection, n) in collections" 
-        :md-label="collection.name" 
-        @change="showCollection(n)">
-      </md-tab>
-    </md-tabs>
+      ></md-tab>
+  </md-tabs>
+    -->
     <md-button v-if="url.length" class="md-fab md-primary md-fab-top-right" id="fab" @click.native="generateLink()">
       <md-icon>share</md-icon>
       <md-tooltip md-direction="bottom">Generate link</md-tooltip>
     </md-button>
-    <div id="loading" v-bind:style="{width: w + '%'}" v-if="isStreamLoadingNow"></div>
-    <h1 id="counter">{{ streamName }}</h1>
-    <span class="md-caption">{{ streamInfo }}</span>
-    <p id="processed" v-if="fileSize">Processed: <b>{{ (100*processed/fileSize).toFixed(0) }}%</b> ({{ (processed/1024).toFixed(1) }}K of {{ (fileSize/1024).toFixed(1) }}K)</p>
     <p v-if="total"> Total: {{ total }} </p>
     <md-chips v-model="searchArr" v-if="searchArr.length" class="search-chips" md-static>
       <template scope="chip">{{ chip.value }}</template>
@@ -372,8 +399,37 @@
     </div>
 
     <div v-if="collections.length && (collections[activeCollection].display || collections[activeCollection].save)">
-      <h3>Collection: <strong class="primary-color">{{ collections[activeCollection].name }}</strong></h3>
+      <div
+        id="loading"
+        v-bind:style="{width: collections[activeCollection].source.progress + '%'}" 
+        v-if="collections[activeCollection].source.loading"
+      ></div>
+
+      <!-- Collection name-->
+      <md-input-container class="collection-name" md-clearable>
+        <label>Collection name</label>
+        <md-input v-model="collections[activeCollection].name"></md-input>
+      </md-input-container>
+
+      <!-- DASHBOARD -->
+      <div class="dashboard" v-if="!collections[activeCollection].preview">
+        <md-card class="card">
+          <md-card-header>
+            <md-card-header-text>
+              <div class="md-title">{{ collections[activeCollection].length }} </div>
+              <div class="md-subhead">Number of records loaded...</div>
+            </md-card-header-text>
+          </md-card-header>
+          <md-card-actions v-if="!collections[activeCollection].loading">
+            <md-button class="md-dense" v-if="collections[activeCollection].length && collections[activeCollection].save" v-on:click.native="save(activeCollection, 'csv')"><md-icon class="primary-color">file_download</md-icon> Save CSV</md-button>
+            <md-button class="md-dense" v-if="collections[activeCollection].length && collections[activeCollection].save" v-on:click.native="save(activeCollection, 'json')"><md-icon class="primary-color">file_download</md-icon> Save JSON</md-button>
+          </md-card-actions>
+        </md-card>
+      </div>
+
       <!--
+      <p id="processed" v-if="fileSize">Processed: <b>{{ (100*processed/fileSize).toFixed(0) }}%</b> ({{ (processed/1024).toFixed(1) }}K of {{ (fileSize/1024).toFixed(1) }}K)</p>
+      <h3>Collection: <strong class="primary-color">{{ collections[activeCollection].name }}</strong></h3>
       <chartist
           v-for="chart in charts"
           :key="chart.name"
@@ -413,9 +469,7 @@
           </tr>
         </tbody>
       </table>
-      <md-button class="md-raised md-dense" v-if="collections[activeCollection].length && collections[activeCollection].save" v-on:click.native="save(collections[activeCollection].name, 'csv')"><md-icon class="primary-color">file_download</md-icon> Save to CSV</md-button>
-      <md-button class="md-raised md-dense" v-if="collections[activeCollection].length && collections[activeCollection].save" v-on:click.native="save(collections[activeCollection].name, 'json')"><md-icon class="primary-color">file_download</md-icon> Save to JSON</md-button>
-    </div>
+        </div>
     <p id="size"></p>
     <p id="text"></p>
     <textarea id="query" v-if="url.length" rows="5">{{ newQuery }} </textarea>
@@ -424,7 +478,7 @@
   <!-- Extra information  -->
   <md-snackbar md-position="bottom center" ref="snackbar" md-duration="3000">
     <span>{{ notifyMessage }}</span>
-    <md-button class="md-accent" md-theme="light-blue" @click.native="$refs.snackbar.close()">Retry</md-button>
+    <md-button class="md-accent" md-theme="light-blue" @click.native="$refs.snackbar.close()">Ok</md-button>
   </md-snackbar>
 
   <!-- Alerts and errors -->

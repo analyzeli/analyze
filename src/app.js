@@ -18,8 +18,8 @@ const parseStream = require('./utils/parse-stream')
 
 // Objects
 const flat = require('flat')
-const path = require('object-path') // Acess nested object properties with a variable
 const json2csv = require('json2csv') // Convert array of objects to CSV
+// const path = require('object-path') // Acess nested object properties with a variable -- everything is flat now
 // const saveToCollection = require('./save-to-collection.js')
 // const escape = require('html-escape') // Sanitize url
 
@@ -30,6 +30,8 @@ const dnd = require('drag-and-drop-files') // Handle Drag and Drop events
 // Other
 const Querify = require('./utils/querify.js')
 // const queryString = require('query-string')
+
+const CHUNKSIZE = 100 * 1024 // Set chunk size fixed for all file sizes
 
 function showApp () {
   document.getElementById('app-loader').style.display = 'none'
@@ -48,12 +50,13 @@ class Chart {
 
 class Source {
   constructor (params) {
-    this.stream = params.stream
-    this.stream.setEncoding('utf8')
+    // this.stream = params.stream
+    // this.stream.setEncoding('utf8')
     this.name = params.name
     this.type = params.type
     this.preview = params.preview
     this.counter = 0 // how many lines loaded in preview mode
+    this.storable = true
     this.loading = false // flag to show that stream is in progress
     this.processed = 0 // how many bytes processed, bytes
     this.progress = 0 // process progress, %
@@ -115,7 +118,7 @@ class Collection {
     this.save = true // can save
     this.records = {} // actual table records
     this.source = source // collection info source
-    this.name = source.name // name, same as source name
+    this.name = source.name.split('.')[0] // name, same as source name
   }
 }
 
@@ -124,57 +127,28 @@ const TopK = require('./stat/topk')
 const Stats = {TopK}
 const querify = new Querify(['run', 'url', 'search', 'searchColumn', 'strictSearch', 'structure', 'charts'])
 
-// Read stream
-let rs
-
-// const streams = []
-/*
-function preload (event) {
-  const app = this // context: app object
-
-  // If event exists - it's a file input.
-  if (event) {
-    // Store file info in app's data
-    app.file = event.target.files[0]
-    app.fileType = (app.file.type.slice(app.file.type.indexOf('/') + 1))
-    app.fileSize = app.file.size
-    // Initialize read stream
-    rs = loadFiles()
-  } else {
-    // Preload was launched without arguments - source is url
-    // ...
-  }
-  getStreamStructure(rs, app.fileType)
-}
-*/
-
-// 1a. Prepare stream (from URL)
+// Prepare source (from URL)
 function loadUrl () {
   const app = this
   if (app.url && app.url.length) {
-    const request = http.get(app.url, (res) => {
-      const source = new Source({
-        stream: res,
-        url: app.url,
-        name: app.url.slice(app.url.lastIndexOf('/') + 1, app.url.search(/tsv|csv|xml/g) + 3),
-        type: ((app.url.indexOf('csv') > 0) || (app.url.indexOf('tsv' > 0)))
-          ? 'csv'
-          : 'xml',
-        preview: true
-      })
-      app.loadSources([source])
+    console.log('Loading URL: ', app.url)
+    const source = new Source({
+      url: app.url,
+      name: app.url.slice(app.url.lastIndexOf('/') + 1, app.url.search(/tsv|csv|xml/g) + 3),
+      type: ((app.url.indexOf('csv') > 0) || (app.url.indexOf('tsv' > 0)))
+        ? 'csv'
+        : 'xml',
+      preview: true
     })
-    request.on('error', function (e) {
-      console.log(e)
-      app.showError(e.message)
-    })
+
+    // app.loadSources() accepts arrays, so wrap one URL-based source in an array
+    app.loadSources([source])
   }
 }
 
-// 1b. Prepare stream (from FILE)
+// Prepare source (from FILE)
 // Creates a source object for each file, adds them to array of new sources, calls universal function loadSources
 function loadFiles (files) {
-  // const files = event.target.files
   console.log('Loading files: ', files)
   const app = this
   const newSources = []
@@ -185,25 +159,44 @@ function loadFiles (files) {
       name: file.name, // name of the source
       type: file.type.slice(file.type.indexOf('/') + 1), // file type (csv or xml)
       size: file.size, // size
-      stream: new ReadStream(file), // node readable stream
+      // stream: new ReadStream(file), // node readable stream
       preview: true // source just opened, preload it when scroll
     })
     newSources.push(source)
   }
 
   app.loadSources(newSources)
-
-  /*
-  app.file = event.target.files[0]
-  app.fileType = (app.file.type.slice(app.file.type.indexOf('/') + 1))
-  app.fileSize = app.file.size
-  rs = new ReadStream(app.file)
-  rs.setEncoding('utf8')
-  app.getStreamStructure(rs, app.fileType)
-  */
 }
 
-// Calculate data header/structure
+// Creates a stream based on file object or url
+function createStream (f) {
+  return new Promise((resolve, reject) => {
+    let stream
+    if (f.size) {
+      stream = new ReadStream(f, {chunkSize: CHUNKSIZE})
+      stream.setEncoding('utf8')
+      resolve(stream)
+    } else if (f.length) {
+      const request = http.get(f, function (res) {
+        console.log('Response: ', res)
+        if (res.statusCode === 200) {
+          stream = res
+          stream.setEncoding('utf8')
+          resolve(stream)
+        } else {
+          console.log('Error: ', res.statusCode, res.statusMessage)
+          reject(new Error(res.statusMessage))
+        }
+      })
+      request.on('error', function (e) {
+        console.log('Error: ', e)
+        reject(e)
+      })
+    }
+  })
+}
+
+// Calculates data header/structure
 function getStreamStructure (rs, type) {
   return new Promise((resolve, reject) => {
     if (type === 'csv') {
@@ -218,25 +211,110 @@ function getStreamStructure (rs, type) {
   })
 }
 
-// Here we have sources and their streams. Not files or urls.
+// --> Transform -->
+// Filter text string (array of values to find)
+function filterTextStream (searchArr, fileType) {
+  let header = true
+  return filter((line) => {
+    let l = searchArr.length
+    let found = (l === 0)
+    let i = 0
+    if ((header) && (fileType === 'csv')) {
+      header = false
+      return true
+    }
+    while ((!found) && (i < l)) {
+      found = found || (line.indexOf(searchArr[i]) >= 0)
+      i += 1
+    }
+    return found
+  })
+}
+
+// --> Transform -->
+// Filter object stream (range)
+function flatObjectStream () {
+  return through2.obj(function (obj, enc, callback) {
+    this.push(flat(obj))
+    callback()
+  })
+}
+
+// --> Transform -->
+// Filter object stream (array of values to find)
+function filterObjectStream (searchArr, searchColumn, strictSearch) {
+  return filter.obj((obj) => {
+    const l = searchArr.length
+    // const value = path.get(obj, searchColumn)
+    const value = obj[searchColumn] // path.get produced errors when working with folumns that contained '.'
+    let found = (l === 0)
+    let i = 0
+    while ((!found) && (i < l)) {
+      found = found || ((strictSearch === true) && (value === searchArr[i])) || ((strictSearch === false) && (value.indexOf(searchArr[i]) >= 0))
+      i += 1
+    }
+    return found
+  })
+}
+
+// --> Transform -->
+// Filter object stream (range)
+function filterObjectStreamByRange (from, to, searchColumn) {
+  return filter.obj((obj) => {
+    // const value = parseFloat(path.get(obj, searchColumn))
+    const value = parseFloat(obj[searchColumn])
+    const f = parseFloat(from)
+    const t = parseFloat(to)
+    return (t <= f) || ((value >= f) && (value <= t))
+  })
+}
+
+// --> Transform -->
+// Restructure flat object stream
+function restructureObjectStream (newColumns, showAllColumns) {
+  return through2.obj(function (obj, enc, callback) {
+    if ((newColumns.length > 0) && (!showAllColumns)) {
+      const newObj = {}
+      newColumns.forEach((column) => {
+        // path.set(structuredObj, column, path.get(obj, el))
+        newObj[column] = obj[column]
+      })
+      this.push(newObj)
+    } else {
+      this.push(obj)
+    }
+    callback()
+  })
+}
+
+// Here we have sources, create streams, get approximate structure (columns).
 async function loadSources (sources) {
   const app = this
   for (let source of sources) {
+    // Create readable streams
+    try {
+      source.stream = await createStream((source.file) ? source.file : source.url)
+    } catch (e) {
+      app.showError(e.message)
+    }
+    //  app.showError(e.message)
+    // Detect structure (columns)
     const structure = await getStreamStructure(source.stream, source.type)
     source = Object.assign(source, structure)
+    // By default, restructured collection has the same structure
     source.newColumns = source.columns.slice(0)
+    // Add a new source to app.sources
     app.sources.push(source)
-    app.loadSource(source)
+    // Preview source
+    app.previewSource(source)
     // app.showCollection(app.collections.length - 1) // show latest added collection
-    // console.log('Switch to collection: ', app.activeCollection)
   }
+  // Hide file dialog
   app.states.loader = false
-
-  // showApp()
 }
 
 // Store data structure, trigger loader if needed
-function loadSource (source) {
+function previewSource (source) {
   // source.isStreamAnalyzed = true
   // if (app.searchColumn.length === 0) app.searchColumn = app.columns[0]
   /*
@@ -250,9 +328,12 @@ function loadSource (source) {
 
   // Create new collection for the source
   const collection = new Collection(source)
+  collection.name += '(preview)'
 
-  source.collection = collection
+  // Indicate that it's a preview collection
+  collection.preview = true
   app.collections.push(collection)
+  app.showCollection(app.collections.length - 1)
 
   // We need extra stream (previewStream) to be able pause/resume it.
   // If we just pause readable stream that is piped to transform streams,
@@ -260,121 +341,48 @@ function loadSource (source) {
   source.previewStream = source.stream
     .pipe(splitStream(source.type, source.item), { end: false }) // Split text stream into text blocks (one for each record)
     .pipe(parseStream(source.type, source.delimiter), { end: false }) // 'end' <boolean> End the writer when the reader ends. Defaults to true
+    .pipe(flatObjectStream(), { end: false })
 
-  //
   source.previewStream.on('data', function (obj) {
     // If stream sends data read it anyway. Not to miss between line
-    const flatObj = flat(obj)
-    for (let prop in flatObj) {
+    for (let prop in obj) {
       if (collection.records[prop] === undefined) {
         collection.records[prop] = []
       }
-      collection.records[prop].push(flatObj[prop])
+      collection.records[prop].push(obj[prop])
     }
     collection.length += 1
 
     // Check counter
-    if (source.counter < 50) {
+    if (source.counter < 49) {
       source.counter += 1
     } else {
       source.previewStream.pause()
     }
   })
+
+  app.notify('Preview opened. Scroll to load more...')
 }
 
-/*
-function getStreamStructure (rs, type) {
-  const app = this
-  if (type === 'csv') {
-    getCsvStreamStructure(rs, function (columns, delimiter) {
-      app.delimiter = delimiter
-      app.processStreamStructure(columns)
-    })
-  } else if (type === 'xml') {
-    getXmlStreamStructure(rs, function (columns, item) {
-      app.item = item
-      app.processStreamStructure(columns)
-    })
-  }
-}
-*/
-
-// Load some more data when scroll to bottom
-/*
-function resumeStreamIfBottom () {
-  if ((document.body.scrollHeight - window.innerHeight - window.scrollY) < 100) {
-    counter = 0
-    rs.resume()
-  }
-}
-*/
-
-// 2.1 Store data structure, trigger loader if needed
-/*
-function processStreamStructure (columns) {
-  const app = this
-  app.columns = columns.slice(0)
-  app.isStreamAnalyzed = true
-  if (app.url && app.url.length && app.run) {
-    setTimeout(function () {
-      load()
-    }, 200)
-  }
-  showApp()
-
-  // Preload data
-  rs
-    .pipe(splitStream(app.fileType, app.item), { end: false }) // Split text stream into text blocks (one for each record)
-    .pipe(parseStream(app.fileType, app.delimiter), { end: false }) // 'end' <boolean> End the writer when the reader ends. Defaults to true
-    .on('data', function (obj) {
-      if (counter < 50) {
-        counter += 1
-        var flatObj = flat(obj)
-        for (var prop in flatObj) {
-          if (app.collections.main.records[prop] === undefined) {
-            app.collections.main.records[prop] = []
-          }
-          app.collections.main.records[prop].push(flatObj[prop])
-        }
-        app.collections.main.length += 1
-      } else {
-        rs.pause()
-      }
-    })
-
-  document.addEventListener('scroll', resumeStreamIfBottom, false)
-}
-*/
-function createStream (f) {
-  return new Promise((resolve, reject) => {
-    let stream
-    if (f.size) {
-      stream = new ReadStream(f)
-      stream.setEncoding('utf8')
-      resolve(stream)
-    } else if (f.length) {
-      http.get(f, function (res) {
-        stream = res
-        stream.setEncoding('utf8')
-        resolve(stream)
-      })
-    }
-  })
-}
-
-// 3. Process source
+// Process source
 async function process (source) {
   let app = this
-  source.loading = true // Currently stream is loading
-  source.preview = false // Finishing preview stage
-  source.stream = await createStream((source.file) ? source.file : source.url)
-  console.log(source.stream)
+
   console.log('Processing source:', source.name)
-  /*
-  app.searchArr = (app.search.length > 0)
-    ? app.search.split(',').map((el) => el.trim())
-    : []
-  */
+
+  source.loading = true // Currently stream is loading
+  source.progress = 0 // Nullify the progress
+  source.processed = 0 // Nullify the processed byte counter
+
+  // Create a new collection
+  const collection = new Collection(source)
+  if (source.filters.length) collection.name += '(f' + source.filters.length + ')'
+  if (source.columns.length !== source.newColumns.length) collection.name += '(s' + source.newColumns.length + ')'
+  app.collections.push(collection)
+  app.showCollection(app.collections.length - 1)
+
+  // Create a new readable stream to preserve preview stream
+  source.stream2 = await createStream((source.file) ? source.file : source.url)
 
   // Initialize all stream algorithms
   /*
@@ -396,9 +404,9 @@ async function process (source) {
   const byteStep = source.size / 500
 
   // Create main stream, calculate progress, split on pieces
-  source.mainStream = source.stream
+  source.mainStream = source.stream2
+    // .pipe(block({ size: 1024 * 100, zeroPadding: true })) // -- no need (readfile accepts param chunkSize)
     .pipe(through2(function (chunk, enc, callback) {
-      console.log(chunk)
       source.processed += chunk.length
       if (source.size) {
         let prevBytes = 0
@@ -425,13 +433,22 @@ async function process (source) {
 
   // Parsing
   source.mainStream = source.mainStream
-    .pipe(parseStream(app.fileType, app.delimiter), { end: false }) // 'end' <boolean> End the writer when the reader ends. Defaults to true
+    .pipe(parseStream(source.type, source.delimiter), { end: false }) // 'end' <boolean> End the writer when the reader ends. Defaults to true
+
+  // Flat XML tree-like objects
+  if (source.type === 'xml') {
+    source.mainStream = source.mainStream
+      .pipe(flatObjectStream(), { end: false })
+  }
 
   // Soft filters
   source.filters.forEach(filter => {
     if (!filter.range) {
       source.mainStream = source.mainStream
         .pipe(filterObjectStream(filter.valueArr, filter.column, filter.strict), { end: false })
+    } else if (filter.range) {
+      source.mainStream = source.mainStream
+        .pipe(filterObjectStreamByRange(filter.from, filter.to, filter.column), { end: false })
     }
   })
 
@@ -440,7 +457,6 @@ async function process (source) {
     .pipe(restructureObjectStream(source.newColumns, source.showAllColumns), { end: false })
 
   source.mainStream.on('data', function (obj) {
-    console.log(obj)
     // Here the pipeline throws parsed, filtered, not flat objects
     // Plot stream
     /*
@@ -454,30 +470,88 @@ async function process (source) {
     app.stats.forEach((stat) => {
       stat.process(obj)
     })
+    */
 
     // Store object in the main collection
-    if (app.collections.main.display || app.collections.main.save) {
-      var flatObj = flat(obj)
-      for (var prop in flatObj) {
-        if (app.collections.main.records[prop] === undefined) {
-          app.collections.main.records[prop] = []
+    if (source.storable) {
+      const flatObj = flat(obj)
+      for (let prop in flatObj) {
+        if (collection.records[prop] === undefined) {
+          collection.records[prop] = []
         }
-        app.collections.main.records[prop][app.total] = flatObj[prop]
+        collection.records[prop][collection.length] = flatObj[prop]
       }
-      app.collections.main.length += 1
+      collection.length += 1
     }
-
-    app.total += 1
-    */
   })
 
-  source.mainStream.on('end', () => {
-    app.howError('All data loaded')
+  source.stream2.on('end', () => {
+    // app.showError('All data loaded')
+    app.notify('Processing finished')
     source.loading = false
   })
 }
 
+function stop (source) {
+  const app = this
+  console.log('Stopping source: ', source.name)
+  source.stream2.pause()
+  source.mainStream.pause()
+  if (source.stream2.close) {
+    console.log('closing stream')
+    source.stream2.close()
+    source.mainStream.close()
+  } else if (source.stream2.destroy) {
+    console.log('destroying stream')
+    source.stream2.destroy()
+    source.mainStream.destroy()
+  }
+  source.loading = false
+  app.notify('Stream stopped')
+}
+
+function collectionToObjects (collection) {
+  const objects = []
+  for (let i = 0; i < collection.length; i++) {
+    const object = {}
+    for (let column in collection.records) {
+      if (collection.records[column][i] !== undefined) {
+        object[column] = collection.records[column][i]
+      }
+    }
+    objects.push(object)
+  }
+  return objects
+}
+
+function getCollectionHeader (collection) {
+  const header = []
+  for (let column in collection.records) {
+    header.push(column)
+  }
+  return header
+}
+
+// Save results to a file
+function save (collectionNumber, type) {
+  console.log('Saving collection: ', collectionNumber, type)
+  const app = this
+  const objects = collectionToObjects(app.collections[collectionNumber])
+  let blob
+  switch (type) {
+    case 'csv':
+      const header = getCollectionHeader(app.collections[collectionNumber])
+      blob = new window.Blob([json2csv({data: objects, fields: header})], {type: 'text/plain;charset=utf-8'})
+      break
+    case 'json':
+      blob = new window.Blob([JSON.stringify(objects)], {type: 'text/plain;charset=utf-8'})
+      break
+  }
+  FileSaver.saveAs(blob, app.collections[collectionNumber].name + '.' + type)
+}
+
 // 3. Process stream
+/*
 function load () {
   let app = this
   app.isStreamLoadingNow = true // Currently loading stream
@@ -557,60 +631,14 @@ function load () {
     app.isStreamLoadingNow = false
   })
 }
+*/
 
 // 3.0.1
-function filterTextStream (searchArr, fileType) {
-  let header = true
-  return filter((line) => {
-    let l = searchArr.length
-    let found = (l === 0)
-    let i = 0
-    if ((header) && (fileType === 'csv')) {
-      header = false
-      return true
-    }
-    while ((!found) && (i < l)) {
-      found = found || (line.indexOf(searchArr[i]) >= 0)
-      i += 1
-    }
-    return found
-  })
-}
-
-// 3.0.4 Object filter stream
-function filterObjectStream (searchArr, searchColumn, strictSearch) {
-  return filter.obj((obj) => {
-    const l = searchArr.length
-    const value = path.get(obj, searchColumn)
-    let found = (l === 0)
-    let i = 0
-    while ((!found) && (i < l)) {
-      found = found || ((strictSearch === true) && (value === searchArr[i])) || ((strictSearch === false) && (value.indexOf(searchArr[i]) >= 0))
-      i += 1
-    }
-    return found
-  })
-}
-
 // Open new file or url
 function open () {
   const app = this
   // window.history.pushState(null, null, '/analyze/')
   app.states.loader = true
-  /*
-  app.search = ''
-  app.run = false
-  app.searchArr = []
-  app.strictSearch = false
-  app.structure = {showAll: true, newColumns: []}
-  app.charts = []
-  app.stats = []
-  app.wasStreamLoaded = false
-  app.url = ''
-  app.file = undefined
-  app.resetState()
-  app.isStreamAnalyzed = false
-  */
 }
 
 // Show notification
@@ -681,17 +709,6 @@ var appOptions = {
       },
       activeCollection: 0,
       collections: [],
-      /*
-      collections: {
-        main: {
-          length: 0,
-          display: true,
-          save: true,
-          records: {},
-          name: 'Main'
-        }
-      },
-      */
       readStream: undefined,
       url: '',
       httpError: {
@@ -737,20 +754,25 @@ var appOptions = {
     }
   },
   methods: {
-    load,
-    save,
     open,
     notify,
     generateLink,
-    loadUrl,
-    loadFiles,
-    loadSources,
-    loadSource,
-    process,
-    getStreamStructure,
+
+    loadUrl, // create source from url
+    loadFiles, // create source from local file
+    loadSources, // create streams for sources
+    previewSource, // create a preview collection from source
+    process, // process source
+    stop, // stop source
+    save, // save collection
+
     resetState,
+    removeCollection (i) {
+      if ((i <= this.activeCollection) && (this.activeCollection > 0)) this.showCollection(this.activeCollection - 1)
+      this.collections.splice(i, 1)
+    },
     showCollection (i) {
-      console.log('Switching to collection: ', i, this.collections[i].name)
+      console.log('Switching to collection: ', i)
       this.activeCollection = i
     },
     showSource (i) {
@@ -776,9 +798,10 @@ var appOptions = {
     removeChart: function (index) {
       this.charts.splice(index, 1)
     },
+    /*
     stopStream: function () {
-      rs.pause()
-      rs.unpipe()
+      // rs.pause()
+      // rs.unpipe()
       this.isStreamLoadingNow = false
     },
     reloadStream: function () {
@@ -798,6 +821,7 @@ var appOptions = {
         })
       }
     },
+    */
     showError (error) {
       console.log('Show error: ', error)
       this.error.content = error
@@ -850,10 +874,10 @@ var appOptions = {
     if (window.File && window.FileReader && window.FileList && window.Blob) {
       // Add scroll event that preloads some data
       document.addEventListener('scroll', function () {
-        if ((document.body.scrollHeight - window.innerHeight - window.scrollY) < 100) {
+        if (((document.body.scrollHeight - window.innerHeight - window.scrollY) < 100) && app.collections.length) {
           console.log('[Event] Bottom of screen')
-          const source = app.collections[app.activeCollection].source
-          if (source.preview) {
+          if (app.collections[app.activeCollection].preview) {
+            const source = app.collections[app.activeCollection].source
             console.log('Resuming a preview stream of ', source.name)
             source.counter = 0
             source.previewStream.resume()
@@ -880,63 +904,6 @@ var appOptions = {
       window.alert(`Your browser doesn't support File API`)
     }
   }
-}
-
-// var appInitial = Object.apply({}, appOptions)
-
-// 3.0.5 Object restructuring stream
-function restructureObjectStream (columns, showAllColumns) {
-  return through2.obj(function (obj, enc, callback) {
-    if ((columns.length > 0) && (!showAllColumns)) {
-      var structuredObj = {}
-      columns.forEach((el) => {
-        path.set(structuredObj, el, path.get(obj, el))
-      })
-      this.push(structuredObj)
-    } else {
-      this.push(obj)
-    }
-    callback()
-  })
-}
-
-function collectionToObjects (collection) {
-  var objects = []
-  for (var i = 0; i < collection.length; i++) {
-    var object = {}
-    for (var column in collection.records) {
-      if (collection.records[column][i] !== undefined) {
-        object[column] = collection.records[column][i]
-      }
-    }
-    objects.push(object)
-  }
-  return objects
-}
-
-function getCollectionHeader (collection) {
-  var header = []
-  for (var column in collection.records) {
-    header.push(column)
-  }
-  return header
-}
-
-// 4. Save results to a file
-function save (collectionName, type) {
-  let app = this
-  var objects = collectionToObjects(app.collections[collectionName])
-  var blob
-  switch (type) {
-    case 'csv':
-      var header = getCollectionHeader(app.collections[collectionName])
-      blob = new window.Blob([json2csv({data: objects, fields: header})], {type: 'text/plain;charset=utf-8'})
-      break
-    case 'json':
-      blob = new window.Blob([JSON.stringify(objects)], {type: 'text/plain;charset=utf-8'})
-      break
-  }
-  FileSaver.saveAs(blob, app.streamName.split('.')[0] + '-' + collectionName.toLowerCase() + '.' + type)
 }
 
 module.exports = appOptions
