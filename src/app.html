@@ -1,12 +1,56 @@
 <div id="app">
-  <div class="sidebar">
-    <md-toolbar class="logo-bar">
+  <div class="source-bar">
+    <!-- LOGO -->
+    <div class="logo-block">
       <img class="logo" src="images/logo.png"/>
-      <md-button class="md-primary md-raised" v-if="!states.loader" v-on:click.native="open">
-        Open
-      </md-button>
-    </md-toolbar>
-    <!-- Select an active source -->
+    </div>
+
+    <!-- SOURCE SELECTION -->
+    <div class="source-tabs" v-if="sources.length">
+      <div
+        v-for="(source, i) in sources"
+        :key="source.name + i"
+        :class="{'source-tab': true, 'active-tab': (activeSource === i)}"
+        >
+        <md-button class="md-dense" v-on:click.native="showSource(i)">
+          {{ (source.name.length > 13) ? source.name.substring(0, 13) + '...' : source.name }}
+        </md-button>
+        <md-button v-on:click.native="removeSource(i)" class="md-icon-button md-dense">
+          <md-icon>clear</md-icon>
+        </md-button>
+      </div>
+    </div>
+
+    <md-button class="md-primary md-raised" v-if="!states.loader" v-on:click.native="open">
+      Add source
+    </md-button>
+
+    <div class="info-block">
+      Everything is processed locally on your machine.
+    </div>
+  </div>
+
+  <div class="transform-bar" v-if="sources.length">
+    <md-card>
+      <md-card-header>
+        <div class="md-title" style="font-weight: 600;">
+          {{ sources[activeSource].name }}
+        </div>
+        <div class="md-subhead" v-if="sources[activeSource].size">
+          Source size: {{ (sources[activeSource].size / (1024 ** 2)).toFixed(2) }}Mb<br>
+          Modified: {{ sources[activeSource].file.lastModifiedDate.toUTCString() }}<br>
+          Type: {{ sources[activeSource].type.toUpperCase() }}
+        </div>
+        <div class="md-subhead" v-if="sources[activeSource].url">
+          Source URL: {{ sources[activeSource].url }}<br>
+          Type: {{ sources[activeSource].type.toUpperCase() }}
+        </div>
+
+      </md-card-header>
+    </md-card>
+
+    <!-- 
+      Select an active source 
     <md-button-toggle class="md-raised md-primary" md-single v-if="sources.length">
       <md-button 
         v-for="(source, i) in sources"
@@ -15,9 +59,10 @@
         :class="{'md-toggle': (activeSource == i)}"
       > {{ source.name }} </md-button>
     </md-button-toggle>
+    -->
 
     <!-- Generate sidebar for each active source (source) -->
-    <md-list v-if="sources.length" v-for="source in [sources[activeSource]]" :class="{hidden: (states.loader || source.loading) }">
+    <md-list v-for="source in [sources[activeSource]]" :class="{hidden: (states.loader || source.loading) }">
       <!-- FILTER/SEARCH -->
       <md-list-item :md-expand-multiple="true">
         <md-icon class="md-primary">filter_list</md-icon>
@@ -357,7 +402,13 @@
     </md-input-container>
   </div>
 
+  <!--
+  ************************
+  CONTENT WITH COLLECTIONS
+  ************************
+  -->
   <div class="content" v-if="!states.loader">
+    <!-- COLLECTION TABS -->
     <div 
       class="tabs"
       v-if="collections.length">
@@ -379,12 +430,8 @@
         </md-button>
       </div>
     </div>
-    <!--
-    <md-tabs class="md-transparent" md-fixed @change="showCollection($event)">
-      <md-tab
-      ></md-tab>
-  </md-tabs>
-    -->
+
+    <!-- Generate link-->
     <md-button v-if="url.length" class="md-fab md-primary md-fab-top-right" id="fab" @click.native="generateLink()">
       <md-icon>share</md-icon>
       <md-tooltip md-direction="bottom">Generate link</md-tooltip>
@@ -399,6 +446,8 @@
     </div>
 
     <div v-if="collections.length && (collections[activeCollection].display || collections[activeCollection].save)">
+
+      <!-- Loader -->
       <div
         id="loading"
         v-bind:style="{width: collections[activeCollection].source.progress + '%'}" 

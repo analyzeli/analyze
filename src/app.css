@@ -56,6 +56,7 @@ h1, h2, h3, .something-like-logo {
   align-content: center;
   align-items: center;
   background-color: #DDD;
+  border: 1px solid #fff9;
 }
 
 .tabs .active-tab {
@@ -76,11 +77,72 @@ h1, h2, h3, .something-like-logo {
   margin: 12px 5px 16px;
 }
 
-.sidebar {
+.source-bar {
+  position: fixed;
+  width: 10%;
+  top: 0px;
+  left: 0px;
+  bottom: 0px;
+  background: #1b1d62;
+  box-shadow: 0 0 20px rgba(0, 0, 0, .1);
+  z-index:3;
+  background: -moz-linear-gradient(-45deg, #1b1d62 0%, #18358e 100%); /* FF3.6-15 */
+  background: -webkit-linear-gradient(-45deg, #1b1d62 0%,#18358e 100%); /* Chrome10-25,Safari5.1-6 */
+  background: linear-gradient(135deg, #1b1d62 0%,#18358e 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#1b1d62', endColorstr='#18358e',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
+}
+
+.source-bar .logo-block {
+  background-color: #080a37;
+  padding: 17px 10px;
+}
+
+.source-bar .logo-block .logo {
+  width: 100px;
+}
+
+.source-bar .source-tab {
+  position: relative;
+}
+
+.source-bar .active-tab  {
+  background-color: #080a3780;
+}
+
+.source-bar .source-tab button {
+  color: white;
+  padding: 5px;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+.source-bar .source-tab button.md-icon-button {
+  position: absolute;
+  top: 15px;
+  right: 0px;
+}
+.source-bar .source-tab button.md-icon-button .md-icon {
+  color: rgba(255, 255, 255, .4);
+  font-size: 16px !important;
+}
+
+.source-bar .info-block {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  background-color: #080a3780;
+  border-radius: 3px;
+  padding: 10px;
+  color: white;
+  font-size: 11px;
+}
+
+.transform-bar {
   position: fixed;
   width: 23%;
   top: 0px;
-  left: 0px;
+  left: 10%;
   bottom: 0px;
   background-color: #FFF;
   /*padding: 5px;*/
@@ -89,35 +151,31 @@ h1, h2, h3, .something-like-logo {
   z-index:2;
 }
 
-.md-toolbar {
-  justify-content: space-between;
-}
-.md-toolbar .logo {
-  width: 108px;
-}
-
-.sidebar .md-theme-default.md-toolbar {
-  background-color: #1d1f5a;
-}
-
-.sidebar .control-button {
+.transform-bar .control-button {
   width: 94%;
   padding: 6px;
   margin-top: 8px;
 }
 
-.sidebar .md-primary {
+.transform-bar .md-primary {
   margin-right: 10px;
 }
-.sidebar .md-card-expand {
+.transform-bar .md-card-expand {
   background-color: #F5F5F5;
 }
-.sidebar .md-card-active {
+.transform-bar .md-card-active {
   background-color: white;
 }
 
-.sidebar .item-card {
+.transform-bar .item-card {
   margin-bottom: 15px;
+}
+
+.md-toolbar {
+  justify-content: space-between;
+}
+.md-toolbar .logo {
+  width: 108px;
 }
 
 .hidden {
@@ -132,7 +190,7 @@ h1, h2, h3, .something-like-logo {
 .content {
   position: relative;
   padding: 15px 25px;
-  margin-left: 23%;
+  margin-left: 33%;
   z-index: 1;
 }
 

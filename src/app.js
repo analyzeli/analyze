@@ -774,6 +774,8 @@ var appOptions = {
     showCollection (i) {
       console.log('Switching to collection: ', i)
       this.activeCollection = i
+      const sourceNumber = this.sources.findIndex(s => s.name === this.collections[i].source.name)
+      this.showSource(sourceNumber)
     },
     showSource (i) {
       console.log('Switching to source: ', i, this.sources[i].name)
