@@ -21,7 +21,7 @@
       </div>
     </div>
 
-    <md-button class="md-primary md-raised" v-if="!states.loader" v-on:click.native="open">
+    <md-button id="open-button" class="md-primary md-raised" v-on:click.native="open">
       Add source
     </md-button>
 
@@ -62,7 +62,7 @@
     -->
 
     <!-- Generate sidebar for each active source (source) -->
-    <md-list v-for="source in [sources[activeSource]]" :class="{hidden: (states.loader || source.loading) }">
+    <md-list v-for="source in [sources[activeSource]]" :class="{hidden: source.loading}">
       <!-- FILTER/SEARCH -->
       <md-list-item :md-expand-multiple="true">
         <md-icon class="md-primary">filter_list</md-icon>
@@ -76,7 +76,7 @@
               </md-button>
 
               <!-- Filter block -->
-              <md-card class="item-card md-primary" v-for="(filter, i) in source.filters" :key="source.name + i">
+              <md-card class="item-card md-primary" v-for="(filter, i) in source.pipeline.filters" :key="source.name + i">
                 <!-- Filter name and remove button -->
                 <md-card-header>
                   <md-card-header-text>
@@ -97,28 +97,29 @@
 
                 <!-- Filter params -->
                 <md-card-content>
-                  <md-switch v-model="source.filters[i].range" class="md-warn">Range</md-switch>
-                  <md-input-container v-if="!source.filters[i].range">
+                  <md-switch v-model="source.pipeline.filters[i].range" class="md-warn">Range</md-switch>
+                  <md-input-container v-if="!source.pipeline.filters[i].range">
                     <label>Search string</label>
-                    <md-input v-model="source.filters[i].value"></md-input>
+                    <md-input v-model="source.pipeline.filters[i].value"></md-input>
                   </md-input-container>
-                  <md-input-container v-if="source.filters[i].range">
+                  <md-input-container v-if="source.pipeline.filters[i].range">
                     <label>From: </label>
-                    <md-input type="number" v-model="source.filters[i].from"></md-input>
+                    <md-input type="number" v-model="source.pipeline.filters[i].from"></md-input>
                   </md-input-container>
-                  <md-input-container v-if="source.filters[i].range">
+                  <md-input-container v-if="source.pipeline.filters[i].range">
                     <label>To: </label>
-                    <md-input type="number" v-model="source.filters[i].to"></md-input>
+                    <md-input type="number" v-model="source.pipeline.filters[i].to"></md-input>
                   </md-input-container>
                   <md-input-container>
                     <label for="search-column">Search in columns</label>
                     <md-select
                       name="search-column"
-                      v-model="source.filters[i].column">
+                      v-model="source.pipeline.filters[i].column">
                       <md-option v-for="column in source.columns" :value="column" :key="column">{{ column }}</md-option>
                     </md-select>
                   </md-input-container>
-                  <md-checkbox name="strict" v-if="!source.filters[i].range" v-model="source.filters[i].strict" class="md-primary">Strict search</md-checkbox>
+                  <md-checkbox name="casesensitive" v-if="!source.pipeline.filters[i].range" v-model="source.pipeline.filters[i].casesensitive" class="md-primary">Case sensitive</md-checkbox>
+                  <md-checkbox name="strict" v-if="!source.pipeline.filters[i].range" v-model="source.pipeline.filters[i].strict" class="md-primary">Strict search</md-checkbox>
                 </md-card-content>
               </md-card> 
               <!-- *Filter block-->
@@ -136,10 +137,10 @@
         <md-list-expand>
           <md-card>
             <md-card-content>
-              <md-checkbox name="columns-showall" v-model="source.showAllColumns" class="md-primary">Keep all columns</md-checkbox>
+              <md-checkbox name="columns-showall" v-model="source.pipeline.restructure.showAllColumns" class="md-primary">Keep all columns</md-checkbox>
               
               <div
-                v-if="!source.showAllColumns"
+                v-if="!source.pipeline.restructure.showAllColumns"
                 v-for="column in source.columns"
               >
                 <input 
@@ -148,15 +149,15 @@
                   :name="column + i"
                   :value="column"
                   :key="column"
-                  v-model="source.newColumns"
+                  v-model="source.pipeline.restructure.newColumns"
                 />
                 <label :for="column + i">{{ column }}</label>
               </div>
 
               <!--
-              <md-input-container v-if="!source.showAllColumns">
+              <md-input-container v-if="!source.pipeline.restructure.showAllColumns">
                 <label for="columns">Columns:</label>
-                <md-select id="columns" name="columns" multiple v-model="source.newColumns">
+                <md-select id="columns" name="columns" multiple v-model="source.pipeline.restructure.newColumns">
                   <md-option
                     v-for="(column, i) in source.columns"
                     :value="column"
@@ -386,28 +387,12 @@
     </div>
   </div>
 
-  <div class="content choose-file" v-if="states.loader">
-    <md-icon class="md-size-2x md-primary">arrow_downward</md-icon>
-    <h1>Drag and drop files here</h1>
-    <p>or use the input field below</p>
-    <md-input-container>
-      <label>Local CSV or XML file</label>
-      <md-file @change.native="loadFiles($event.target.files)" multiple></md-file>
-    </md-input-container>
-    <p>or paste a link</p>
-    <md-input-container>
-      <label>Link to CSV or XML file</label>
-      <md-input v-model="url" @blur.native="loadUrl"></md-input>
-      <md-icon style="cursor: pointer">link</md-icon>
-    </md-input-container>
-  </div>
-
   <!--
   ************************
   CONTENT WITH COLLECTIONS
   ************************
   -->
-  <div class="content" v-if="!states.loader">
+  <div class="content" v-bind:style="{marginLeft: (sources.length) ? '33%' : '11%'}">
     <!-- COLLECTION TABS -->
     <div 
       class="tabs"
@@ -518,22 +503,47 @@
           </tr>
         </tbody>
       </table>
-        </div>
+    </div>
     <p id="size"></p>
     <p id="text"></p>
     <textarea id="query" v-if="url.length" rows="5">{{ newQuery }} </textarea>
-  </div>
-
-  <!-- Extra information  -->
-  <md-snackbar md-position="bottom center" ref="snackbar" md-duration="3000">
-    <span>{{ notifyMessage }}</span>
-    <md-button class="md-accent" md-theme="light-blue" @click.native="$refs.snackbar.close()">Ok</md-button>
-  </md-snackbar>
-
-  <!-- Alerts and errors -->
-  <md-dialog-alert
+    
+    <!-- Extra information  -->
+    <md-snackbar md-position="bottom center" ref="snackbar" md-duration="3000">
+      <span>{{ notifyMessage }}</span>
+      <md-button class="md-accent" md-theme="light-blue" @click.native="$refs.snackbar.close()">Ok</md-button>
+    </md-snackbar>
+    
+    <!-- Alerts and errors -->
+    <md-dialog-alert
     :md-content="error.content"
     :md-ok-text="error.button"
     ref="error">
   </md-dialog-alert>
+  
+  <!-- Open file dialog -->
+  <md-dialog
+  class="open-dialog"
+  md-open-from="#open-button"
+  md-close-to="#open-button"
+  ref="open-dialog"
+  >
+  <md-dialog-title>Open input data source</md-dialog-title>
+  <md-dialog-content style="min-width: 450px;">
+    <md-input-container>
+      <label>Local CSV or XML file</label>
+      <md-file @change.native="loadFiles($event.target.files)" multiple></md-file>
+    </md-input-container>
+    <p>or paste a link</p>
+    <md-input-container>
+      <label>Link to CSV or XML file</label>
+      <md-input v-model="url" @blur.native="loadUrl"></md-input>
+      <md-icon style="cursor: pointer">link</md-icon>
+    </md-input-container>
+  </md-dialog-content>
+  <md-dialog-actions>
+    <md-button class="md-primary" @click.native="closeOpenDialog">Cancel</md-button>
+  </md-dialog-actions>
+</md-dialog>
+</div>
 </div>

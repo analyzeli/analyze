@@ -70,25 +70,23 @@ class Source {
       this.size = params.size
     }
 
-    // Filter
-    this.filters = []
-
-    // Columns
+    // Original source columns
     this.columns = []
-    this.newColumns = []
-    this.showAllColumns = true
 
-    // Formulas
-    this.formulas = []
+    // Link to preview collection
+    // this.previewCollection
 
-    // Split
-    this.split = {}
-
-    // Stats
-    this.stats = []
-
-    // Merge
-    this.merge = {}
+    this.pipeline = {
+      filters: [],
+      restructure: {
+        newColumns: [],
+        showAllColumns: true
+      },
+      formulas: [],
+      split: {},
+      stats: [],
+      merge: {}
+    }
 
     // Add first filter
     this.addFilter()
@@ -96,10 +94,11 @@ class Source {
   // *constructor
 
   addFilter () {
-    this.filters.push({
+    this.pipeline.filters.push({
       column: '',
       value: '',
       strict: false,
+      casesensitive: false,
       range: false,
       from: 0,
       to: 0
@@ -107,7 +106,7 @@ class Source {
   }
 
   removeFilter (i) {
-    this.filters.splice(i, 1)
+    this.pipeline.filters.splice(i, 1)
   }
 }
 
@@ -126,6 +125,16 @@ const TopK = require('./stat/topk')
 // var Group = require('./stat/group')
 const Stats = {TopK}
 const querify = new Querify(['run', 'url', 'search', 'searchColumn', 'strictSearch', 'structure', 'charts'])
+
+// Clone object
+function clone (obj) {
+  console.log('Cloning: ', obj)
+  const clonedString = JSON.stringify(obj)
+  console.log('Cloned string:', clonedString)
+  const clonedObj = JSON.parse(JSON.stringify(obj))
+  console.log('Cloned object:', clonedObj)
+  return clonedObj
+}
 
 // Prepare source (from URL)
 function loadUrl () {
@@ -213,7 +222,7 @@ function getStreamStructure (rs, type) {
 
 // --> Transform -->
 // Filter text string (array of values to find)
-function filterTextStream (searchArr, fileType) {
+function filterTextStream (searchArr, fileType, casesensitive) {
   let header = true
   return filter((line) => {
     let l = searchArr.length
@@ -224,7 +233,7 @@ function filterTextStream (searchArr, fileType) {
       return true
     }
     while ((!found) && (i < l)) {
-      found = found || (line.indexOf(searchArr[i]) >= 0)
+      found = found || (casesensitive && (line.indexOf(searchArr[i]) >= 0)) || (!casesensitive && ((line + '').toLowerCase().indexOf(searchArr[i].toLowerCase()) >= 0))
       i += 1
     }
     return found
@@ -242,15 +251,16 @@ function flatObjectStream () {
 
 // --> Transform -->
 // Filter object stream (array of values to find)
-function filterObjectStream (searchArr, searchColumn, strictSearch) {
+function filterObjectStream (searchArr, searchColumn, strictSearch, casesensitive) {
   return filter.obj((obj) => {
     const l = searchArr.length
     // const value = path.get(obj, searchColumn)
-    const value = obj[searchColumn] // path.get produced errors when working with folumns that contained '.'
+    const value = (casesensitive) ? obj[searchColumn] : obj[searchColumn].toLowerCase() // path.get produced errors when working with folumns that contained '.'
     let found = (l === 0)
     let i = 0
     while ((!found) && (i < l)) {
-      found = found || ((strictSearch === true) && (value === searchArr[i])) || ((strictSearch === false) && (value.indexOf(searchArr[i]) >= 0))
+      const searchValue = (casesensitive) ? searchArr[i] : searchArr[i].toLowerCase()
+      found = found || ((strictSearch === true) && (value === searchValue)) || ((strictSearch === false) && (value.indexOf(searchValue) >= 0))
       i += 1
     }
     return found
@@ -301,8 +311,10 @@ async function loadSources (sources) {
     // Detect structure (columns)
     const structure = await getStreamStructure(source.stream, source.type)
     source = Object.assign(source, structure)
+
     // By default, restructured collection has the same structure
-    source.newColumns = source.columns.slice(0)
+    // source.pipeline.restructure.newColumns = source.columns.slice(0)
+
     // Add a new source to app.sources
     app.sources.push(source)
     // Preview source
@@ -310,7 +322,7 @@ async function loadSources (sources) {
     // app.showCollection(app.collections.length - 1) // show latest added collection
   }
   // Hide file dialog
-  app.states.loader = false
+  app.closeOpenDialog()
 }
 
 // Store data structure, trigger loader if needed
@@ -328,12 +340,17 @@ function previewSource (source) {
 
   // Create new collection for the source
   const collection = new Collection(source)
+  collection.pipeline = clone(source.pipeline)
   collection.name += '(preview)'
 
   // Indicate that it's a preview collection
   collection.preview = true
   app.collections.push(collection)
-  app.showCollection(app.collections.length - 1)
+
+  // Activate latest collection
+  app.activeCollection = app.collections.length - 1
+  // Activate latest source
+  app.activeSource = app.sources.length - 1
 
   // We need extra stream (previewStream) to be able pause/resume it.
   // If we just pause readable stream that is piped to transform streams,
@@ -376,10 +393,14 @@ async function process (source) {
 
   // Create a new collection
   const collection = new Collection(source)
-  if (source.filters.length) collection.name += '(f' + source.filters.length + ')'
-  if (source.columns.length !== source.newColumns.length) collection.name += '(s' + source.newColumns.length + ')'
+  if (source.pipeline.filters.length) collection.name += '(f' + source.pipeline.filters.length + ')'
+  if (!source.pipeline.restructure.showAllColumns && (source.columns.length !== source.pipeline.restructure.newColumns.length)) collection.name += '(s' + source.pipeline.restructure.newColumns.length + ')'
+
+  // Store a pipeline that produced this collection
+  collection.pipeline = clone(source.pipeline)
+
   app.collections.push(collection)
-  app.showCollection(app.collections.length - 1)
+  app.activeCollection = app.collections.length - 1
 
   // Create a new readable stream to preserve preview stream
   source.stream2 = await createStream((source.file) ? source.file : source.url)
@@ -421,13 +442,11 @@ async function process (source) {
     .pipe(splitStream(source.type, source.item), { end: false }) // Split text stream into text blocks (one for each record)
 
   // Hard filters
-  source.filters.forEach(filter => {
-    if (!filter.range) {
-      filter.valueArr = (filter.value.length > 0)
-        ? filter.value.split(',').map((el) => el.trim())
-        : []
+  source.pipeline.filters.forEach(filter => {
+    if (!filter.range && filter.value.length) {
+      filter.valueArr = filter.value.split(',').map((el) => el.trim())
       source.mainStream = source.mainStream
-        .pipe(filterTextStream(filter.valueArr, source.type), { end: false }) // Filter text blocks if needed
+        .pipe(filterTextStream(filter.valueArr, source.type, filter.casesensitive), { end: false }) // Filter text blocks if needed
     }
   })
 
@@ -442,10 +461,10 @@ async function process (source) {
   }
 
   // Soft filters
-  source.filters.forEach(filter => {
-    if (!filter.range) {
+  source.pipeline.filters.forEach(filter => {
+    if (!filter.range && filter.value.length && filter.column.length) {
       source.mainStream = source.mainStream
-        .pipe(filterObjectStream(filter.valueArr, filter.column, filter.strict), { end: false })
+        .pipe(filterObjectStream(filter.valueArr, filter.column, filter.strict, filter.casesensitive), { end: false })
     } else if (filter.range) {
       source.mainStream = source.mainStream
         .pipe(filterObjectStreamByRange(filter.from, filter.to, filter.column), { end: false })
@@ -454,7 +473,7 @@ async function process (source) {
 
   // Restructure, manual processing
   source.mainStream = source.mainStream
-    .pipe(restructureObjectStream(source.newColumns, source.showAllColumns), { end: false })
+    .pipe(restructureObjectStream(source.pipeline.restructure.newColumns, source.pipeline.restructure.showAllColumns), { end: false })
 
   source.mainStream.on('data', function (obj) {
     // Here the pipeline throws parsed, filtered, not flat objects
@@ -638,7 +657,7 @@ function load () {
 function open () {
   const app = this
   // window.history.pushState(null, null, '/analyze/')
-  app.states.loader = true
+  app.showOpenDialog()
 }
 
 // Show notification
@@ -703,10 +722,6 @@ var appOptions = {
       strictSearch: true,
       processed: 0,
       total: 0, // Total records loaded to memory
-      structure: {
-        showAll: true,
-        newColumns: []
-      },
       activeCollection: 0,
       collections: [],
       readStream: undefined,
@@ -765,21 +780,47 @@ var appOptions = {
     process, // process source
     stop, // stop source
     save, // save collection
-
     resetState,
-    removeCollection (i) {
-      if ((i <= this.activeCollection) && (this.activeCollection > 0)) this.showCollection(this.activeCollection - 1)
-      this.collections.splice(i, 1)
-    },
+    // Collection methods
     showCollection (i) {
       console.log('Switching to collection: ', i)
-      this.activeCollection = i
-      const sourceNumber = this.sources.findIndex(s => s.name === this.collections[i].source.name)
-      this.showSource(sourceNumber)
+      const app = this
+      app.activeCollection = i
+      const sourceNumber = app.sources.findIndex(s => s.name === app.collections[i].source.name)
+      app.sources[sourceNumber].pipeline = clone(app.collections[i].pipeline)
+      app.activeSource = sourceNumber
     },
+    removeCollection (i) {
+      const app = this
+      app.collections.splice(i, 1)
+      if (i < app.activeCollection) {
+        app.activeCollection -= 1
+      } else if (i === app.activeCollection) {
+        app.showCollection(i ? i - 1 : i)
+      }
+    },
+    // Source methods
     showSource (i) {
       console.log('Switching to source: ', i, this.sources[i].name)
-      this.activeSource = i
+      const app = this
+      app.activeSource = i
+      const previewCollectionNumber = app.collections.findIndex(c => ((c.source.name === app.sources[i].name) && c.preview))
+      app.activeCollection = previewCollectionNumber
+    },
+    // Remove source, remove preview
+    removeSource (i) {
+      const app = this
+      const previewCollectionNumber = app.collections.findIndex(c => ((c.source.name === app.sources[i].name) && c.preview))
+      console.log(`Remove source ${i} collection ${previewCollectionNumber}, active source: ${app.activeSource}`)
+      app.sources.splice(i, 1)
+      if (i < this.activeSource) {
+        // Just shift active source
+        app.activeSource -= 1
+      } else if ((i === app.activeSource) && (app.sources.length)) {
+        // Redraw collections
+        app.showSource(i ? i - 1 : i)
+      }
+      app.removeCollection(previewCollectionNumber)
     },
     addStat: function (type) {
       var newStat = new Stats[type]()
@@ -831,6 +872,14 @@ var appOptions = {
     },
     closeError () {
       this.$refs['error'].close()
+    },
+    showOpenDialog () {
+      console.log('Show open dialog')
+      this.$refs['open-dialog'].open()
+    },
+    closeOpenDialog () {
+      console.log('Show open dialog')
+      this.$refs['open-dialog'].close()
     }
   },
   computed: {
@@ -842,9 +891,6 @@ var appOptions = {
     },
     streamInfo () {
       return (this.file !== undefined) ? 'Last modified: ' + this.file.lastModifiedDate.toLocaleDateString('en-US') : 'Source: ' + this.url
-    },
-    selectedColumns () {
-      return (this.structure.showAll) ? this.columns : this.structure.newColumns
     },
     newQuery () {
       let app = this
@@ -874,6 +920,14 @@ var appOptions = {
     let app = this
     // Check if a browser supports needed API
     if (window.File && window.FileReader && window.FileList && window.Blob) {
+      // Detect ENTER
+      document.addEventListener('keyup', function (e) {
+        console.log('[Event] Keypressed: ENTER. Start processing')
+        if ((e.keyCode === 13) && app.sources.length && !app.sources[app.activeSource].loading) {
+          app.process(app.sources[app.activeSource])
+        }
+      })
+
       // Add scroll event that preloads some data
       document.addEventListener('scroll', function () {
         if (((document.body.scrollHeight - window.innerHeight - window.scrollY) < 100) && app.collections.length) {
@@ -892,11 +946,15 @@ var appOptions = {
       if (window.location.search) {
         var queryObj = querify.getQueryObject(window.location.search)
         setTimeout(function () {
+          showApp()
           app = Object.assign(app, queryObj)
           app.loadUrl()
         }, 100)
       } else {
-        showApp()
+        setTimeout(function () {
+          showApp()
+          app.showOpenDialog()
+        }, 100)
         // Attach drag-and-drop event
         dnd(document.body, (files) => {
           app.loadFiles(files)

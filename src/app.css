@@ -106,7 +106,11 @@ h1, h2, h3, .something-like-logo {
 }
 
 .source-bar .active-tab  {
-  background-color: #080a3780;
+  background-color: #444be799;
+}
+
+.source-bar .active-tab button {
+  font-weight: 600;
 }
 
 .source-bar .source-tab button {
@@ -232,15 +236,27 @@ h1, h2, h3, .something-like-logo {
 table {
   border-collapse: collapse;
 }
+table thead {
+  background-color: #E4E4E4;
+}
+table thead th {
+  padding: 5px;
+  margin:2px;
+}
 table tr:hover {
-  background-color: #F5F5F5;
+  background-color: #E7E7E7;
 }
 table td {
-  border-top: 1px solid #eee;
+  border-top: 1px solid #dcdcdc;
   font-size: .9em;
   padding: 5px 15px;
   color: #444;
 }
 .search-chips .md-input-container:after {
   display: none
+}
+
+/* OPEN DIALOG */
+.md-dialog.md-reference {
+  width: 33% !important;
 }
