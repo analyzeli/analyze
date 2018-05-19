@@ -10,6 +10,18 @@
     <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
     <link rel="icon" type="image/png" href="favicon-32x32.png" sizes="32x32" />
     <link rel="icon" type="image/png" href="favicon-16x16.png" sizes="16x16" />
+    <style>
+      /* Fix dropdown multiple select */
+      .md-menu-content .md-list .md-checkbox-container {
+        display: none;
+      }
+      .md-menu-content .md-list .md-list-item .md-checkbox-label {
+        padding-left: 0;
+      }
+      .md-menu-content .md-list .md-selected .md-checkbox-label {
+        font-weight: bold;
+      }
+    </style>
   </head>
   <body style="background-color: #f4f4f4">
     <div id="app-loader">

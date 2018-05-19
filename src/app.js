@@ -8,6 +8,7 @@ const getCsvStreamStructure = require('./utils/get-csv-stream-structure.js') // 
 const getXmlStreamStructure = require('./utils/get-xml-stream-structure.js') // Get XML nodes and repeated node
 const splitStream = require('./utils/split-stream')
 const parseStream = require('./utils/parse-stream')
+
 // const xmlObjects = require('xml-objects') // Parse XML
 // const csv = require('csv-parser') // Parse CSV
 // const Combiner = require('stream-combiner') // Combine multiple transform streams into one
@@ -28,6 +29,8 @@ const dnd = require('drag-and-drop-files') // Handle Drag and Drop events
 // const group = require('./group.js') //Group by a properties
 
 // Other
+// const Dygraph = require('dygraphs')
+// const moment = require('moment')
 const Querify = require('./utils/querify.js')
 // const queryString = require('query-string')
 
@@ -82,6 +85,7 @@ class Source {
         newColumns: [],
         showAllColumns: true
       },
+      charts: [],
       formulas: [],
       split: {},
       stats: [],
@@ -108,6 +112,28 @@ class Source {
   removeFilter (i) {
     this.pipeline.filters.splice(i, 1)
   }
+
+  addChart (type) {
+    const chart = {
+      type,
+      name: 'Chart.' + (this.pipeline.charts.length + 1)
+    }
+
+    switch (type) {
+      case 'Line':
+        chart.legend = 'always'
+        chart.rangeSelector = true
+        chart.xColumn = ''
+        chart.yColumns = ['']
+        chart.yLabel = ''
+        break
+    }
+    this.pipeline.charts.push(chart)
+  }
+
+  removeChart () {
+    //
+  }
 }
 
 class Collection {
@@ -116,6 +142,7 @@ class Collection {
     this.display = true // display table
     this.save = true // can save
     this.records = {} // actual table records
+    this.charts = []
     this.source = source // collection info source
     this.name = source.name.split('.')[0] // name, same as source name
   }
@@ -490,7 +517,16 @@ async function process (source) {
       stat.process(obj)
     })
     */
-
+    /*
+    collection.charts.forEach(c => {
+      const d = [parseFloat(obj[c.xColumn])]
+      c.yColumns.forEach(yColumn => {
+        d.push(parseFloat(obj[yColumn]))
+      })
+      c.data.push(d)
+      // if (d.length % 1000) c.g.updateOptions({ 'file': c.data })
+    })
+    */
     // Store object in the main collection
     if (source.storable) {
       const flatObj = flat(obj)
@@ -505,7 +541,67 @@ async function process (source) {
   })
 
   source.stream2.on('end', () => {
+    // Initialize charts
+    console.log('[Event] Stream end')
+    source.pipeline.charts.forEach(c => {
+      const chart = clone(c)
+      chart.collection = collection
+      /*
+      const data = collection.records[c.xColumn]
+        .map((v, i) => {
+          let xValue = i
+          if (isFinite(v)) {
+            xValue = parseFloat(v)
+          } else {
+            const xDate = moment(v)
+            if (xDate.isValid()) {
+              xValue = xDate.toDate()
+            }
+          }
+          return [
+            xValue,
+            parseFloat(collection.records[c.yColumns[0]][i])
+          ]
+        })
+      console.log('Chart data: ', data)
+      chart.container = document.createElement('div')
+      chart.container.id = chart.name + '.' + app.chartsCounter
+      chart.container.style.position = 'relative'
+      chart.container.style.width = '90%'
+      app.$refs.charts.appendChild(chart.container)
+      chart.g = new Dygraph(
+        chart.container,
+        data,
+        {}
+      )
+      */
+      chart.options = {
+        series: [],
+        chart: {
+          type: 'line',
+          zoomType: 'x'
+        },
+        rangeSelector: {
+          enabled: true,
+          floating: true
+        },
+        navigator: {
+          margin: 60
+        }
+      }
+      chart.yColumns.forEach((column) => {
+        console.log('Column:', column)
+        console.log('Data:', collection.records[column])
+        chart.options.series.push({
+          name: column,
+          data: collection.records[column].map(v => parseFloat(v))
+        })
+      })
+      collection.charts.push(chart)
+    })
+
     // app.showError('All data loaded')
+    // c.g.updateOptions({ 'file': c.data })
     app.notify('Processing finished')
     source.loading = false
   })
@@ -516,11 +612,7 @@ function stop (source) {
   console.log('Stopping source: ', source.name)
   source.stream2.pause()
   source.mainStream.pause()
-  if (source.stream2.close) {
-    console.log('closing stream')
-    source.stream2.close()
-    source.mainStream.close()
-  } else if (source.stream2.destroy) {
+  if (source.stream2.destroy) {
     console.log('destroying stream')
     source.stream2.destroy()
     source.mainStream.destroy()
@@ -698,6 +790,8 @@ var appOptions = {
     return {
       sources: [],
       activeSource: 0,
+      chartsCounter: 0, // total number of charts created
+      chartTypes: ['Bar', 'Line', 'Column', 'Pie'],
       states: {
         loader: true, // open source dialog
         progress: false // stream in progress
@@ -737,7 +831,6 @@ var appOptions = {
       w: 0,
       // statTypes: ['Group'],
       stats: [],
-      chartTypes: ['Bar', 'Line', 'Pie'],
       charts: [],
       dynamicVis: [
         {
@@ -922,8 +1015,8 @@ var appOptions = {
     if (window.File && window.FileReader && window.FileList && window.Blob) {
       // Detect ENTER
       document.addEventListener('keyup', function (e) {
-        console.log('[Event] Keypressed: ENTER. Start processing')
         if ((e.keyCode === 13) && app.sources.length && !app.sources[app.activeSource].loading) {
+          console.log('[Event] Keypressed: ENTER. Start processing')
           app.process(app.sources[app.activeSource])
         }
       })

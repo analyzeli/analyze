@@ -225,6 +225,31 @@ h1, h2, h3, .something-like-logo {
   left: 0;
 }
 
+/* CHARTS */
+.charts {
+}
+
+.charts .chart-container {
+  margin: 20px 0;
+  background-color: white;
+  box-shadow: 0 0 5px #AAA;
+  position: relative;
+}
+
+.charts .chart-container .chart {
+  width: 70%;
+}
+
+.charts .chart-container .chart-options {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30%;
+  padding: 10px;
+  background-color: #F3F3F3;
+}
+
 /* COLLECTION NAME */
 .collection-name {
   margin: 15px 0 30px 0;
@@ -279,3 +304,6 @@ table td {
 .md-dialog.md-reference {
   width: 33% !important;
 }
+
+
+

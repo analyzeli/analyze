@@ -277,7 +277,7 @@
       </md-list-item>
 
       <!-- CHARTS -->
-      <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
+      <md-list-item :md-expand-multiple="true">
         <md-icon class="md-primary">equalizer</md-icon>
         <div class="md-subheading">Charts</div>
         <md-list-expand>
@@ -285,19 +285,20 @@
           <md-card-content>
             <!-- Add new chart menu -->
             <md-menu md-direction="bottom left" md-size="4">
-              <md-button class="md-icon-button" md-menu-trigger>
+              <md-button md-menu-trigger>
                 <md-icon>add</md-icon>
+                Add new chart
               </md-button>
               <md-menu-content>
-                <md-menu-item v-for="type in chartTypes" :key="type" v-on:click.native="addChart(type)">
+                <md-menu-item v-for="type in chartTypes" :key="type" v-on:click.native="source.addChart(type)">
                   <span> {{ type }}</span>
                   <md-icon>add_circle_outline</md-icon>
                 </md-menu-item>
               </md-menu-content>
-            </md-menu>
+            </md-menu>  
 
             <!-- Chart blocks -->
-            <md-card class="stat-card md-primary" v-for="(chart, index) in charts" :key="chart.name">
+            <md-card class="stat-card md-primary" v-for="(chart, index) in source.pipeline.charts" :key="index">
               <md-card-header>
                 <md-card-header-text>
                   <div class="md-subhead"> {{ chart.name }} </div>
@@ -307,7 +308,7 @@
                     <md-icon>more_vert</md-icon>
                   </md-button>
                   <md-menu-content>
-                    <md-menu-item v-on:click.native="removeChart(index)">
+                    <md-menu-item v-on:click.native="source.removeChart(index)">
                       <span>Remove</span>
                       <md-icon>delete</md-icon>
                     </md-menu-item>
@@ -315,28 +316,35 @@
                 </md-menu>
               </md-card-header>
               <md-card-content>
-                <!-- Select collection -->
                 <md-input-container>
-                  <label>Select collection</label>
-                  <md-select v-model="chart.inputCollection">
-                    <md-option v-for="(collection, collectionName) in collections" :key="collectionName" :value="collectionName">{{ collectionName }}</md-option>
-                  </md-select>
+                  <label>Chart name</label>
+                  <md-input v-model="chart.name"></md-input>
                 </md-input-container>
-                <!-- Select column of labels and values -->
-                <div v-if="chart.inputCollection">
+
+                <!-- LINE CHART -->
+                <div v-if="chart.type === 'Line'">
+                  <!-- y-label -->
                   <md-input-container>
-                    <label>Select labels</label>
-                    <md-select v-model="chart.labelColumn">
-                      <md-option v-for="(column, columnName) in collections[chart.inputCollection].records" :key="columnName" :value="columnName">{{ columnName }}</md-option>
+                    <label>X-axis</label>
+                    <md-select v-model="chart.xColumn">
+                      <md-option v-for="(column, ci) in source.columns" :key="ci" :value="column">{{ column }}</md-option>
                     </md-select>
                   </md-input-container>
+
                   <md-input-container>
-                    <label>Select values</label>
-                    <md-select v-model="chart.inputColumn">
-                      <md-option v-for="(column, columnName) in collections[chart.inputCollection].records" :key="columnName" :value="columnName">{{ columnName }}</md-option>
+                    <label>Y-axis</label>
+                    <md-select multiple v-model="chart.yColumns">
+                      <md-option v-for="(column, ci) in source.columns" :key="ci" :value="column">{{ column }}</md-option>
                     </md-select>
+                  </md-input-container>
+
+                  <md-input-container>
+                    <label>Y-axis Label (optional)</label>
+                    <md-input v-model="chart.yLabel"></md-input>
                   </md-input-container>
                 </div>
+                <!-- *LINE -->
+
               </md-card-content>
             </md-card>
 
@@ -431,6 +439,7 @@
       <canvas id="canvas" v-bind:width="plotStream.xSize" v-bind:height="plotStream.ySize"></canvas>
     </div>
 
+
     <div v-if="collections.length && (collections[activeCollection].display || collections[activeCollection].save)">
 
       <!-- Loader -->
@@ -446,7 +455,67 @@
         <md-input v-model="collections[activeCollection].name"></md-input>
       </md-input-container>
 
-      <!-- DASHBOARD -->
+      <!-- Charts -->
+      <div class="charts" ref="charts">
+        <div class="chart-container" v-for="chart in collections[activeCollection].charts">
+          <div class="chart">
+            <!-- <highcharts :options="chart.options"></highcharts> -->
+            <highcharts :options="{
+              title: {
+                  text: chart.name
+              },
+              chart: {
+                type: chart.type.toLowerCase(),
+                zoomType: 'x'
+              },
+              xAxis: {
+                categories: chart.collection.records[chart.xColumn]
+              },
+              series: chart.yColumns.map(c => ({
+                name: c,
+                data: chart.collection.records[c].map(v => parseFloat(v))
+              }))
+            }"></highcharts>
+
+          </div>
+          <div class="chart-options">
+            <md-input-container>
+              <label>Chart name</label>
+              <md-input v-model="chart.name"></md-input>
+            </md-input-container>
+
+            <md-input-container>
+              <label>Type</label>
+              <md-select v-model="chart.type">
+                <md-option v-for="type in chartTypes" :key="type" :value="type">{{ type }}</md-option>
+              </md-select>
+            </md-input-container>
+
+            <md-input-container>
+              <label>X-axis</label>
+              <md-select v-model="chart.xColumn">
+                <md-option v-for="(cd, column) in chart.collection.records" :key="ci" :value="column">{{ column }}</md-option>
+              </md-select>
+            </md-input-container>
+
+            <md-input-container>
+              <label>Y-axis</label>
+              <md-select multiple v-model="chart.yColumns">
+                <md-option v-for="(cd, column) in chart.collection.records" :key="ci" :value="column">{{ column }}</md-option>
+              </md-select>
+            </md-input-container>
+
+            <md-input-container>
+              <label>Y-axis Label (optional)</label>
+              <md-input v-model="chart.yLabel"></md-input>
+            </md-input-container>
+          </div>
+        </div>
+      </div>
+      <!-- *CHARTS -->
+
+
+            <!-- DASHBOARD -->
       <div class="dashboard" v-if="!collections[activeCollection].preview">
         <md-card class="card">
           <md-card-header>
