@@ -214,39 +214,39 @@
           </md-list-expand>
       </md-list-item>
 
-      <!-- ANALYSIS -->
-      <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
+      <!-- FUNCTIONS -->
+      <md-list-item :md-expand-multiple="true">
         <md-icon class="md-primary">functions</md-icon>
-        <div class="md-subheading">Analysis</div>
+        <div class="md-subheading">Functions</div>
         <md-list-expand>
           <md-card>
             <md-card-content>
-              <!-- Add new stat menu -->
+              <!-- Add new function menu -->
               <md-menu md-direction="bottom left" md-size="4">
                 <md-button md-menu-trigger>
                   <md-icon>add</md-icon>
                   Add function
                 </md-button>
                 <md-menu-content>
-                  <md-menu-item v-for="type in statTypes" :key="type" v-on:click.native="addStat(type)">
+                  <md-menu-item v-for="(schema, type) in functionTypes" :key="type" v-on:click.native="source.addFunction(type, schema)">
                     <span> {{ type }}</span>
                     <md-icon>add_circle_outline</md-icon>
                   </md-menu-item>
                 </md-menu-content>
               </md-menu>
 
-              <!-- Stat blocks -->
-              <md-card class="stat-card md-primary" v-for="(stat, index) in stats" :key="stat.name">
+              <!-- Functions blocks -->
+              <md-card class="stat-card md-primary" v-for="(func, index) in source.pipeline.functions" :key="func.name">
                 <md-card-header>
                   <md-card-header-text>
-                    <div class="md-subhead"> {{ stat.name }} </div>
+                    <div class="md-subhead"> {{ func.name }} </div>
                   </md-card-header-text>
                   <md-menu md-size="4" md-direction="bottom left">
                     <md-button class="md-icon-button" md-menu-trigger>
                       <md-icon>more_vert</md-icon>
                     </md-button>
                     <md-menu-content>
-                      <md-menu-item v-on:click.native="removeStat(index)">
+                      <md-menu-item v-on:click.native="source.removeFunction(index)">
                         <span>Remove</span>
                         <md-icon>delete</md-icon>
                       </md-menu-item>
@@ -254,21 +254,45 @@
                   </md-menu>
                 </md-card-header>
                 <md-card-content>
-                  <md-input-container v-for="(prop, key) in stat.props" :key="key">
-                    <label>{{ key }}</label>
-                    <md-select v-model="prop.value" v-if="prop.type === 'Column'">
-                      <md-option 
-                        v-for="column in columns" 
-                        :value="column" 
-                        :key="column"
-                      >{{ column }}</md-option>
-                    </md-select>
-                    <md-input
-                      type="number"
-                      v-model="prop.value" 
-                      v-if="prop.type === 'Number'" 
-                    ></md-input>
-                  </md-input-container>
+                  <div v-for="(paramType, param) in func.schema" :key="param">
+                    <!-- 1 COLUMN -->
+                    <md-input-container v-if="paramType === 'Column'">
+                      <label>{{ param }}</label>
+                      <md-select v-model="func.params[param]">
+                        <md-option 
+                          v-for="column in source.columns"
+                          :value="column"
+                          :key="column"
+                        >
+                          {{ column }}
+                        </md-option>
+                      </md-select>
+                    </md-input-container>
+
+                    <!-- NUMBER -->
+                    <md-input-container v-if="paramType === 'Number'">
+                      <label>{{ param }}</label>
+                      <md-input
+                        type="number"
+                        v-model="func.params[param]"
+                        v-if="paramType === 'Number'"
+                      ></md-input>
+                    </md-input-container>
+
+                    <!-- STRING -->
+                    <md-input-container v-if="paramType === 'String'">
+                      <label>{{ param }}</label>
+                      <md-input
+                          v-model="func.params[param]"
+                      ></md-input>
+                    </md-input-container>
+
+                    <!-- BOOLEAN -->
+                    <md-checkbox 
+                      v-model="func.params[param]"
+                      v-if="paramType === 'Boolean'" 
+                    >{{ param }}</md-checkbox>
+                  </div>
                 </md-card-content>
               </md-card>
             </md-card-content>
@@ -529,6 +553,17 @@
             <md-button class="md-dense" v-if="collections[activeCollection].length && collections[activeCollection].save" v-on:click.native="save(activeCollection, 'json')"><md-icon class="primary-color">file_download</md-icon> Save JSON</md-button>
           </md-card-actions>
         </md-card>
+
+        <md-card class="card" v-for="res in collections[activeCollection].results">
+          <md-card-header>
+            <md-card-header-text>
+              <div class="md-title">{{ res.value }} </div>
+              <div class="md-subhead">{{ res.name }}</div>
+            </md-card-header-text>
+          </md-card-header>
+        </md-card>
+
+
       </div>
 
       <!--

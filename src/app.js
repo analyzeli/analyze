@@ -8,6 +8,7 @@ const getCsvStreamStructure = require('./utils/get-csv-stream-structure.js') // 
 const getXmlStreamStructure = require('./utils/get-xml-stream-structure.js') // Get XML nodes and repeated node
 const splitStream = require('./utils/split-stream')
 const parseStream = require('./utils/parse-stream')
+const functionStream = require('./utils/function-stream')
 
 // const xmlObjects = require('xml-objects') // Parse XML
 // const csv = require('csv-parser') // Parse CSV
@@ -86,7 +87,7 @@ class Source {
         showAllColumns: true
       },
       charts: [],
-      formulas: [],
+      functions: [],
       split: {},
       stats: [],
       merge: {}
@@ -113,6 +114,23 @@ class Source {
     this.pipeline.filters.splice(i, 1)
   }
 
+  addFunction (type, schema) {
+    const func = {
+      type,
+      schema,
+      name: type + '.' + (this.pipeline.charts.length + 1),
+      params: {}
+    }
+    for (let key in schema) {
+      func.params[key] = null
+    }
+    this.pipeline.functions.push(func)
+  }
+
+  removeFunction (i) {
+    this.pipeline.functions.splice(i, 1)
+  }
+
   addChart (type) {
     const chart = {
       type,
@@ -131,8 +149,8 @@ class Source {
     this.pipeline.charts.push(chart)
   }
 
-  removeChart () {
-    //
+  removeChart (i) {
+    this.pipeline.charts.splice(i, 1)
   }
 }
 
@@ -142,7 +160,8 @@ class Collection {
     this.display = true // display table
     this.save = true // can save
     this.records = {} // actual table records
-    this.charts = []
+    this.charts = [] // current collection chart objects
+    this.results = [] // reduce functions results
     this.source = source // collection info source
     this.name = source.name.split('.')[0] // name, same as source name
   }
@@ -340,7 +359,7 @@ async function loadSources (sources) {
     source = Object.assign(source, structure)
 
     // By default, restructured collection has the same structure
-    // source.pipeline.restructure.newColumns = source.columns.slice(0)
+    source.pipeline.restructure.newColumns = source.columns.slice(0)
 
     // Add a new source to app.sources
     app.sources.push(source)
@@ -495,6 +514,27 @@ async function process (source) {
     } else if (filter.range) {
       source.mainStream = source.mainStream
         .pipe(filterObjectStreamByRange(filter.from, filter.to, filter.column), { end: false })
+    }
+  })
+
+  // Functions
+  // Each function object: {type: 'max', params: {inputColumns: [String], outputColumn: String, outputName: String}}
+  source.pipeline.functions.forEach(func => {
+    if (func.params.outputColumn || func.params.sameColumn) {
+      // Transform or Map
+      func.params.outputColumn = (func.params.sameColumn) ? func.params.inputColumn : func.params.outputColumn
+      source.mainStream = source.mainStream.pipe(functionStream(func.type, func.params)) // no cb. just map/transform stream
+    } else {
+      // Reducer
+      const res = {name: func.name}
+      collection.results.push(res)
+      source.mainStream = source.mainStream.pipe(functionStream(func.type, func.params, (result) => {
+        if (typeof result === 'object') {
+          res.records = result
+        } else {
+          res.value = result
+        }
+      }))
     }
   })
 
@@ -792,6 +832,22 @@ var appOptions = {
       activeSource: 0,
       chartsCounter: 0, // total number of charts created
       chartTypes: ['Bar', 'Line', 'Column', 'Pie'],
+      functionTypes: {
+        'SUM': {
+          'inputColumn': 'Column'
+        },
+        'SQRT': {
+          'inputColumn': 'Column',
+          'outputColumn': 'String',
+          'sameColumn': 'Boolean'
+        },
+        'MOVINGAVERAGE': {
+          'period': 'Number',
+          'inputColumn': 'Column',
+          'outputColumn': 'String',
+          'sameColumn': 'Boolean'
+        }
+      },
       states: {
         loader: true, // open source dialog
         progress: false // stream in progress
