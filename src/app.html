@@ -228,15 +228,15 @@
                   Add function
                 </md-button>
                 <md-menu-content>
-                  <md-menu-item v-for="(schema, type) in functionTypes" :key="type" v-on:click.native="source.addFunction(type, schema)">
-                    <span> {{ type }}</span>
+                  <md-menu-item v-for="(schema, type) in functionSchemas" :key="type" v-on:click.native="source.addFunction(type, schema)">
+                    <span> {{ type.toUpperCase() }}</span>
                     <md-icon>add_circle_outline</md-icon>
                   </md-menu-item>
                 </md-menu-content>
               </md-menu>
 
               <!-- Functions blocks -->
-              <md-card class="stat-card md-primary" v-for="(func, index) in source.pipeline.functions" :key="func.name">
+              <md-card class="stat-card md-primary" v-for="(func, index) in source.pipeline.functions" :key="func.name + index">
                 <md-card-header>
                   <md-card-header-text>
                     <div class="md-subhead"> {{ func.name }} </div>
@@ -254,10 +254,10 @@
                   </md-menu>
                 </md-card-header>
                 <md-card-content>
-                  <div v-for="(paramType, param) in func.schema" :key="param">
+                  <div v-for="(paramType, param) in functionSchemas[func.type]" :key="param">
                     <!-- 1 COLUMN -->
                     <md-input-container v-if="paramType === 'Column'">
-                      <label>{{ param }}</label>
+                      <label>{{ paramTitles[param] }}</label>
                       <md-select v-model="func.params[param]">
                         <md-option 
                           v-for="column in source.columns"
@@ -271,7 +271,7 @@
 
                     <!-- NUMBER -->
                     <md-input-container v-if="paramType === 'Number'">
-                      <label>{{ param }}</label>
+                      <label>{{ paramTitles[param] }}</label>
                       <md-input
                         type="number"
                         v-model="func.params[param]"
@@ -281,7 +281,7 @@
 
                     <!-- STRING -->
                     <md-input-container v-if="paramType === 'String'">
-                      <label>{{ param }}</label>
+                      <label>{{ paramTitles[param] }}</label>
                       <md-input
                           v-model="func.params[param]"
                       ></md-input>
@@ -291,7 +291,7 @@
                     <md-checkbox 
                       v-model="func.params[param]"
                       v-if="paramType === 'Boolean'" 
-                    >{{ param }}</md-checkbox>
+                    >{{ paramTitles[param] }}</md-checkbox>
                   </div>
                 </md-card-content>
               </md-card>
@@ -314,8 +314,8 @@
                 Add new chart
               </md-button>
               <md-menu-content>
-                <md-menu-item v-for="type in chartTypes" :key="type" v-on:click.native="source.addChart(type)">
-                  <span> {{ type }}</span>
+                <md-menu-item v-for="(schema, type) in chartSchemas" :key="type" v-on:click.native="source.addChart(type, schema)">
+                  <span> {{ type.toUpperCase() }}</span>
                   <md-icon>add_circle_outline</md-icon>
                 </md-menu-item>
               </md-menu-content>
@@ -340,34 +340,69 @@
                 </md-menu>
               </md-card-header>
               <md-card-content>
+
+                <!-- Name - default field for all charts -->
                 <md-input-container>
                   <label>Chart name</label>
                   <md-input v-model="chart.name"></md-input>
                 </md-input-container>
 
-                <!-- LINE CHART -->
-                <div v-if="chart.type === 'Line'">
-                  <!-- y-label -->
-                  <md-input-container>
-                    <label>X-axis</label>
-                    <md-select v-model="chart.xColumn">
-                      <md-option v-for="(column, ci) in source.columns" :key="ci" :value="column">{{ column }}</md-option>
+                <!-- Chart field constructor -->
+                <div v-for="(paramType, param) in chartSchemas[chart.type]" :key="param">
+                  <!-- 1 COLUMN -->
+                  <md-input-container v-if="paramType.toLowerCase() === 'column'">
+                    <label>{{ paramTitles[param] }}</label>
+                    <md-select v-model="chart.params[param]">
+                      <md-option 
+                        v-for="(column, ci) in [...source.pipeline.restructure.newColumns, ...source.pipeline.functions.map(f => f.params.outputColumn)]"
+                        v-if="column && column.length"
+                        :key="ci"
+                        :value="column"
+                      >
+                        {{ column }}
+                      </md-option>
                     </md-select>
                   </md-input-container>
 
-                  <md-input-container>
-                    <label>Y-axis</label>
-                    <md-select multiple v-model="chart.yColumns">
-                      <md-option v-for="(column, ci) in source.columns" :key="ci" :value="column">{{ column }}</md-option>
+                  <!-- N COLUMNS -->
+                  <md-input-container v-if="paramType.toLowerCase() === 'columns'">
+                    <label>{{ paramTitles[param] }}</label>
+                    <md-select multiple v-model="chart.params[param]">
+                      <md-option 
+                        v-for="(column, ci) in [...source.pipeline.restructure.newColumns, ...source.pipeline.functions.map(f => f.params.outputColumn)]"
+                        v-if="column && column.length"
+                        :key="ci"
+                        :value="column"
+                      >
+                        {{ column }}
+                      </md-option>
                     </md-select>
                   </md-input-container>
 
-                  <md-input-container>
-                    <label>Y-axis Label (optional)</label>
-                    <md-input v-model="chart.yLabel"></md-input>
+                  <!-- NUMBER -->
+                  <md-input-container v-if="paramType.toLowerCase() === 'number'">
+                    <label>{{ paramTitles[param] }}</label>
+                    <md-input
+                      type="number"
+                      v-model="chart.params[param]"
+                    ></md-input>
                   </md-input-container>
-                </div>
-                <!-- *LINE -->
+
+                  <!-- STRING -->
+                  <md-input-container v-if="paramType.toLowerCase() === 'string'">
+                    <label>{{ paramTitles[param] }}</label>
+                    <md-input
+                      v-model="chart.params[param]"
+                    ></md-input>
+                  </md-input-container>
+
+                  <!-- BOOLEAN -->
+                  <md-checkbox 
+                    v-model="chart.params[param]"
+                    v-if="paramType.toLowerCase() === 'boolean'" 
+                  >{{ paramTitles[param] }}</md-checkbox>
+
+                </div> <!-- *Chart-fields constructor -->
 
               </md-card-content>
             </md-card>
@@ -483,7 +518,6 @@
       <div class="charts" ref="charts">
         <div class="chart-container" v-for="chart in collections[activeCollection].charts">
           <div class="chart">
-            <!-- <highcharts :options="chart.options"></highcharts> -->
             <highcharts :options="{
               title: {
                   text: chart.name
@@ -493,9 +527,9 @@
                 zoomType: 'x'
               },
               xAxis: {
-                categories: chart.collection.records[chart.xColumn]
+                categories: chart.collection.records[chart.params.xColumn]
               },
-              series: chart.yColumns.map(c => ({
+              series: chart.params.yColumns.map(c => ({
                 name: c,
                 data: chart.collection.records[c].map(v => parseFloat(v))
               }))
@@ -511,10 +545,68 @@
             <md-input-container>
               <label>Type</label>
               <md-select v-model="chart.type">
-                <md-option v-for="type in chartTypes" :key="type" :value="type">{{ type }}</md-option>
+                <md-option v-for="(schema, type) in chartSchemas" :key="type" :value="type">{{ type.toUpperCase() }}</md-option>
               </md-select>
             </md-input-container>
 
+            <!-- Chart field constructor -->
+            <div v-for="(paramType, param) in chartSchemas[chart.type]" :key="param">
+              <!-- 1 COLUMN -->
+              <md-input-container v-if="paramType.toLowerCase() === 'column'">
+                <label>{{ paramTitles[param] }}</label>
+                <md-select v-model="chart.params[param]">
+                  <md-option 
+                    v-for="(values, column) in collections[activeCollection].records"
+                    v-if="column && column.length"
+                    :key="column"
+                    :value="column"
+                  >
+                    {{ column }}
+                  </md-option>
+                </md-select>
+              </md-input-container>
+
+              <!-- N COLUMNS -->
+              <md-input-container v-if="paramType.toLowerCase() === 'columns'">
+                <label>{{ paramTitles[param] }}</label>
+                <md-select multiple v-model="chart.params[param]">
+                  <md-option 
+                    v-for="(values, column) in collections[activeCollection].records"
+                    v-if="column && column.length"
+                    :key="column"
+                    :value="column"
+                  >
+                    {{ column }}
+                  </md-option>
+                </md-select>
+              </md-input-container>
+
+              <!-- NUMBER -->
+              <md-input-container v-if="paramType.toLowerCase() === 'number'">
+                <label>{{ paramTitles[param] }}</label>
+                <md-input
+                  type="number"
+                  v-model="chart.params[param]"
+                ></md-input>
+              </md-input-container>
+
+              <!-- STRING -->
+              <md-input-container v-if="paramType.toLowerCase() === 'string'">
+                <label>{{ paramTitles[param] }}</label>
+                <md-input
+                  v-model="chart.params[param]"
+                ></md-input>
+              </md-input-container>
+
+              <!-- BOOLEAN -->
+              <md-checkbox 
+                v-model="chart.params[param]"
+                v-if="paramType.toLowerCase() === 'boolean'" 
+              >{{ paramTitles[param] }}</md-checkbox>
+
+            </div> <!-- *Chart-fields constructor -->
+ 
+            <!--
             <md-input-container>
               <label>X-axis</label>
               <md-select v-model="chart.xColumn">
@@ -533,6 +625,7 @@
               <label>Y-axis Label (optional)</label>
               <md-input v-model="chart.yLabel"></md-input>
             </md-input-container>
+-->
           </div>
         </div>
       </div>

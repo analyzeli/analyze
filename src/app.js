@@ -115,15 +115,18 @@ class Source {
   }
 
   addFunction (type, schema) {
+    // Function object
     const func = {
       type,
       schema,
       name: type + '.' + (this.pipeline.charts.length + 1),
       params: {}
     }
+    // Initialize params from schema
     for (let key in schema) {
       func.params[key] = null
     }
+    // Add to pipeline
     this.pipeline.functions.push(func)
   }
 
@@ -131,21 +134,19 @@ class Source {
     this.pipeline.functions.splice(i, 1)
   }
 
-  addChart (type) {
+  addChart (type, schema) {
+    // Chart object
     const chart = {
       type,
-      name: 'Chart.' + (this.pipeline.charts.length + 1)
+      schema,
+      name: 'Chart.' + (this.pipeline.charts.length + 1),
+      params: {}
     }
-
-    switch (type) {
-      case 'Line':
-        chart.legend = 'always'
-        chart.rangeSelector = true
-        chart.xColumn = ''
-        chart.yColumns = ['']
-        chart.yLabel = ''
-        break
+    // Init params from schema
+    for (let key in schema) {
+      chart.params[key] = null
     }
+    // Add to pipeline
     this.pipeline.charts.push(chart)
   }
 
@@ -583,60 +584,10 @@ async function process (source) {
   source.stream2.on('end', () => {
     // Initialize charts
     console.log('[Event] Stream end')
+    console.log('[Loop] Loading charts (source -> collection)')
     source.pipeline.charts.forEach(c => {
       const chart = clone(c)
       chart.collection = collection
-      /*
-      const data = collection.records[c.xColumn]
-        .map((v, i) => {
-          let xValue = i
-          if (isFinite(v)) {
-            xValue = parseFloat(v)
-          } else {
-            const xDate = moment(v)
-            if (xDate.isValid()) {
-              xValue = xDate.toDate()
-            }
-          }
-          return [
-            xValue,
-            parseFloat(collection.records[c.yColumns[0]][i])
-          ]
-        })
-      console.log('Chart data: ', data)
-      chart.container = document.createElement('div')
-      chart.container.id = chart.name + '.' + app.chartsCounter
-      chart.container.style.position = 'relative'
-      chart.container.style.width = '90%'
-      app.$refs.charts.appendChild(chart.container)
-      chart.g = new Dygraph(
-        chart.container,
-        data,
-        {}
-      )
-      */
-      chart.options = {
-        series: [],
-        chart: {
-          type: 'line',
-          zoomType: 'x'
-        },
-        rangeSelector: {
-          enabled: true,
-          floating: true
-        },
-        navigator: {
-          margin: 60
-        }
-      }
-      chart.yColumns.forEach((column) => {
-        console.log('Column:', column)
-        console.log('Data:', collection.records[column])
-        chart.options.series.push({
-          name: column,
-          data: collection.records[column].map(v => parseFloat(v))
-        })
-      })
       collection.charts.push(chart)
     })
 
@@ -645,7 +596,59 @@ async function process (source) {
     app.notify('Processing finished')
     source.loading = false
   })
+} // *process()
+
+/*
+const data = collection.records[c.xColumn]
+  .map((v, i) => {
+    let xValue = i
+    if (isFinite(v)) {
+      xValue = parseFloat(v)
+    } else {
+      const xDate = moment(v)
+      if (xDate.isValid()) {
+        xValue = xDate.toDate()
+      }
+    }
+    return [
+      xValue,
+      parseFloat(collection.records[c.yColumns[0]][i])
+    ]
+  })
+console.log('Chart data: ', data)
+chart.container = document.createElement('div')
+chart.container.id = chart.name + '.' + app.chartsCounter
+chart.container.style.position = 'relative'
+chart.container.style.width = '90%'
+app.$refs.charts.appendChild(chart.container)
+chart.g = new Dygraph(
+  chart.container,
+  data,
+  {}
+)
+chart.options = {
+  series: [],
+  chart: {
+    type: 'line',
+    zoomType: 'x'
+  },
+  rangeSelector: {
+    enabled: true,
+    floating: true
+  },
+  navigator: {
+    margin: 60
+  }
 }
+chart.yColumns.forEach((column) => {
+  console.log('Column:', column)
+  console.log('Data:', collection.records[column])
+  chart.options.series.push({
+    name: column,
+    data: collection.records[column].map(v => parseFloat(v))
+  })
+})
+*/
 
 function stop (source) {
   const app = this
@@ -832,21 +835,37 @@ var appOptions = {
       activeSource: 0,
       chartsCounter: 0, // total number of charts created
       chartTypes: ['Bar', 'Line', 'Column', 'Pie'],
-      functionTypes: {
-        'SUM': {
+      chartSchemas: {
+        'line': {
+          'xColumn': 'Column',
+          'yColumns': 'Columns',
+          'yLabel': 'String'
+        }
+      },
+      functionSchemas: {
+        'sum': {
           'inputColumn': 'Column'
         },
-        'SQRT': {
+        'sqrt': {
           'inputColumn': 'Column',
           'outputColumn': 'String',
           'sameColumn': 'Boolean'
         },
-        'MOVINGAVERAGE': {
+        'movingaverage': {
           'period': 'Number',
           'inputColumn': 'Column',
           'outputColumn': 'String',
           'sameColumn': 'Boolean'
         }
+      },
+      paramTitles: {
+        'inputColumn': 'Input column',
+        'outputColumn': 'Output column name',
+        'sameColumn': 'Change input column',
+        'period': 'Period',
+        'xColumn': 'X-axis',
+        'yColumns': 'Y-axis (multiple)',
+        'yLabel': 'Y-axis label (optional)'
       },
       states: {
         loader: true, // open source dialog
