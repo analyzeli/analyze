@@ -1,4 +1,9 @@
 <div id="app">
+  <!--
+  **********
+  SOURCE BAR
+  **********
+  -->
   <div class="source-bar">
     <!-- LOGO -->
     <div class="logo-block">
@@ -12,9 +17,12 @@
         :key="source.name + i"
         :class="{'source-tab': true, 'active-tab': (activeSource === i)}"
         >
+        <!-- Select source, activate preview collection -->
         <md-button class="md-dense" v-on:click.native="showSource(i)">
+          <!-- Cut too long source names -->
           {{ (source.name.length > 13) ? source.name.substring(0, 13) + '...' : source.name }}
         </md-button>
+        <!-- Remove source -->
         <md-button v-on:click.native="removeSource(i)" class="md-icon-button md-dense">
           <md-icon>clear</md-icon>
         </md-button>
@@ -31,7 +39,13 @@
     <img src="beaver-small.png" class="beaver"/>
   </div>
 
+  <!--
+  *****************
+  TRANSORMATION BAR
+  *****************
+  -->
   <div class="transform-bar" v-if="sources.length">
+    <!-- Source info -->
     <md-card>
       <md-card-header>
         <div class="md-title" style="font-weight: 600;">
@@ -46,38 +60,28 @@
           Source URL: {{ sources[activeSource].url }}<br>
           Type: {{ sources[activeSource].type.toUpperCase() }}
         </div>
-
       </md-card-header>
     </md-card>
 
-    <!-- 
-      Select an active source 
-    <md-button-toggle class="md-raised md-primary" md-single v-if="sources.length">
-      <md-button 
-        v-for="(source, i) in sources"
-        v-on:click.native="showSource(i)"
-        :key="source.name + i"
-        :class="{'md-toggle': (activeSource == i)}"
-      > {{ source.name }} </md-button>
-    </md-button-toggle>
-    -->
-
-    <!-- Generate sidebar for each active source (source) -->
+    <!-- [[[ PIPELINE ]]]. Generate transform-bar for each active source (source) -->
+    <!-- source here is sources[activeSource] -->
     <md-list v-for="source in [sources[activeSource]]" :class="{hidden: source.loading}">
-      <!-- FILTER/SEARCH -->
+
+      <!-- [ FILTER/SEARCH ] -->
       <md-list-item :md-expand-multiple="true">
         <md-icon class="md-primary">filter_list</md-icon>
         <div class="md-subheading">Filter (Search)</div>
         <md-list-expand>
           <md-card>
             <md-card-content>
-              <!-- Add new filter -->
+              <!-- (Add new filter) -->
               <md-button v-on:click.native="source.addFilter()">
                 <md-icon>add</md-icon>Add new filter
               </md-button>
 
-              <!-- Filter block -->
+              <!-- (Filter block) -->
               <md-card class="item-card md-primary" v-for="(filter, i) in source.pipeline.filters" :key="source.name + i">
+
                 <!-- Filter name and remove button -->
                 <md-card-header>
                   <md-card-header-text>
@@ -129,17 +133,18 @@
           </md-card>
         </md-list-expand>
       </md-list-item>
-      <!-- *FILTER -->
+      <!-- *[ FILTER ]-->
 
-      <!-- RESTRUCTURE -->
+      <!-- [ STRUCTURE / COLUMNS ] -->
       <md-list-item :md-expand-multiple="true">
         <md-icon class="md-primary">device_hub</md-icon>
         <div class="md-subheading">Structure (Columns)</div>
         <md-list-expand>
           <md-card>
             <md-card-content>
+              <!-- Process all columns -->
               <md-checkbox name="columns-showall" v-model="source.pipeline.restructure.showAllColumns" class="md-primary">Keep all columns</md-checkbox>
-              
+              <!-- OR select ones to keep -->
               <div
                 v-if="!source.pipeline.restructure.showAllColumns"
                 v-for="column in source.columns"
@@ -154,26 +159,13 @@
                 />
                 <label :for="column + i">{{ column }}</label>
               </div>
-
-              <!--
-              <md-input-container v-if="!source.pipeline.restructure.showAllColumns">
-                <label for="columns">Columns:</label>
-                <md-select id="columns" name="columns" multiple v-model="source.pipeline.restructure.newColumns">
-                  <md-option
-                    v-for="(column, i) in source.columns"
-                    :value="column"
-                    :key="column + i"
-                  >{{ column }}</md-option>
-                </md-select>
-              </md-input-container>
-              -->
-
             </md-card-content>
           </md-card>
         </md-list-expand>
       </md-list-item>
+      <!-- *[ STRUCTURE ] -->
 
-      <!-- PLOT STREAM -->
+      <!-- [ PLOT STREAM ]
       <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
           <md-icon class="md-primary">bubble_chart</md-icon>
           <div class="md-subheading">Plot stream</div>
@@ -212,9 +204,10 @@
               </md-card-content>
             </md-card>
           </md-list-expand>
-      </md-list-item>
+        </md-list-item>
+      *[ PLOT ] -->
 
-      <!-- FUNCTIONS -->
+      <!-- [ FUNCTIONS ] -->
       <md-list-item :md-expand-multiple="true">
         <md-icon class="md-primary">functions</md-icon>
         <div class="md-subheading">Functions</div>
@@ -255,7 +248,7 @@
                 </md-card-header>
                 <md-card-content>
                   <div v-for="(paramType, param) in functionSchemas[func.type]" :key="param">
-                    <!-- 1 COLUMN -->
+                    <!-- { 1 COLUMN } -->
                     <md-input-container v-if="paramType === 'Column'">
                       <label>{{ paramTitles[param] }}</label>
                       <md-select v-model="func.params[param]">
@@ -269,7 +262,7 @@
                       </md-select>
                     </md-input-container>
 
-                    <!-- NUMBER -->
+                    <!-- { NUMBER } -->
                     <md-input-container v-if="paramType === 'Number'">
                       <label>{{ paramTitles[param] }}</label>
                       <md-input
@@ -279,7 +272,7 @@
                       ></md-input>
                     </md-input-container>
 
-                    <!-- STRING -->
+                    <!-- { STRING } -->
                     <md-input-container v-if="paramType === 'String'">
                       <label>{{ paramTitles[param] }}</label>
                       <md-input
@@ -287,7 +280,7 @@
                       ></md-input>
                     </md-input-container>
 
-                    <!-- BOOLEAN -->
+                    <!-- { BOOLEAN } -->
                     <md-checkbox 
                       v-model="func.params[param]"
                       v-if="paramType === 'Boolean'" 
@@ -299,8 +292,9 @@
           </md-card>
         </md-list-expand>
       </md-list-item>
+      <!-- *[ FUNCTIONS ] -->
 
-      <!-- CHARTS -->
+      <!-- [ CHARTS ] -->
       <md-list-item :md-expand-multiple="true">
         <md-icon class="md-primary">equalizer</md-icon>
         <div class="md-subheading">Charts</div>
@@ -349,7 +343,8 @@
 
                 <!-- Chart field constructor -->
                 <div v-for="(paramType, param) in chartSchemas[chart.type]" :key="param">
-                  <!-- 1 COLUMN -->
+
+                  <!-- { 1 COLUMN } -->
                   <md-input-container v-if="paramType.toLowerCase() === 'column'">
                     <label>{{ paramTitles[param] }}</label>
                     <md-select v-model="chart.params[param]">
@@ -364,7 +359,7 @@
                     </md-select>
                   </md-input-container>
 
-                  <!-- N COLUMNS -->
+                  <!-- { N COLUMNS } -->
                   <md-input-container v-if="paramType.toLowerCase() === 'columns'">
                     <label>{{ paramTitles[param] }}</label>
                     <md-select multiple v-model="chart.params[param]">
@@ -379,7 +374,7 @@
                     </md-select>
                   </md-input-container>
 
-                  <!-- NUMBER -->
+                  <!-- { NUMBER } -->
                   <md-input-container v-if="paramType.toLowerCase() === 'number'">
                     <label>{{ paramTitles[param] }}</label>
                     <md-input
@@ -388,7 +383,7 @@
                     ></md-input>
                   </md-input-container>
 
-                  <!-- STRING -->
+                  <!-- { STRING } -->
                   <md-input-container v-if="paramType.toLowerCase() === 'string'">
                     <label>{{ paramTitles[param] }}</label>
                     <md-input
@@ -396,7 +391,7 @@
                     ></md-input>
                   </md-input-container>
 
-                  <!-- BOOLEAN -->
+                  <!-- { BOOLEAN } -->
                   <md-checkbox 
                     v-model="chart.params[param]"
                     v-if="paramType.toLowerCase() === 'boolean'" 
@@ -411,8 +406,9 @@
           </md-card>
         </md-list-expand>
       </md-list-item>
+      <!-- *[ CHARTS ] -->
 
-      <!-- TABLE -->
+      <!-- TABLE 
       <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
         <md-icon class="md-primary">view_list</md-icon>
         <div class="md-subheading">Table (slow)</div>
@@ -424,19 +420,29 @@
           </md-card>
         </md-list-expand>
       </md-list-item>
+      -->
 
-      <!-- OUTPUT -->
-      <md-list-item :md-expand-multiple="true" :class="{hidden: isStreamLoadingNow}">
+      <!-- [ OUTPUT ] -->
+      <md-list-item :md-expand-multiple="true">
         <md-icon class="md-primary">file_download</md-icon>
-        <div class="md-subheading">Save</div>
+        <div class="md-subheading">Output</div>
         <md-list-expand>
           <md-card>
             <md-card-content>
-              <md-checkbox v-for="(collection, collectionName) in collections" v-model="collection.save" :key="collectionName" :name="collectionName + '-save'" class="md-primary">Save {{ collectionName }} collection</md-checkbox>
+              <md-checkbox v-model="source.pipeline.output.toTable" class="md-primary" :disabled="(!source.pipeline.output.toTable && !source.pipeline.output.toMemory)">
+                Display table
+              </md-checkbox>
+              <md-checkbox v-model="source.pipeline.output.toMemory" class="md-primary" :disabled="((source.pipeline.output.toTable || source.pipeline.charts.length) && source.pipeline.output.toMemory)">
+                Store output in memory (needed for charts and table)
+              </md-checkbox>
+              <md-checkbox v-model="source.pipeline.output.toStream" class="md-primary" disabled>
+                Stream output to file (coming soon...)
+              </md-checkbox>
             </md-card-content>
           </md-card>
         </md-list-expand>
       </md-list-item>
+      <!-- *[ OUTPUT ] -->
 
     </md-list>
     <div v-if="sources[activeSource]" style="margin: 10px 16px;">
@@ -528,6 +534,10 @@
               },
               xAxis: {
                 categories: chart.collection.records[chart.params.xColumn]
+                },
+              tooltip: {
+                shared: true,
+                crosshairs: true
               },
               series: chart.params.yColumns.map(c => ({
                 name: c,
@@ -605,34 +615,14 @@
               >{{ paramTitles[param] }}</md-checkbox>
 
             </div> <!-- *Chart-fields constructor -->
- 
-            <!--
-            <md-input-container>
-              <label>X-axis</label>
-              <md-select v-model="chart.xColumn">
-                <md-option v-for="(cd, column) in chart.collection.records" :key="ci" :value="column">{{ column }}</md-option>
-              </md-select>
-            </md-input-container>
 
-            <md-input-container>
-              <label>Y-axis</label>
-              <md-select multiple v-model="chart.yColumns">
-                <md-option v-for="(cd, column) in chart.collection.records" :key="ci" :value="column">{{ column }}</md-option>
-              </md-select>
-            </md-input-container>
-
-            <md-input-container>
-              <label>Y-axis Label (optional)</label>
-              <md-input v-model="chart.yLabel"></md-input>
-            </md-input-container>
--->
           </div>
         </div>
       </div>
       <!-- *CHARTS -->
 
 
-            <!-- DASHBOARD -->
+      <!-- DASHBOARD -->
       <div class="dashboard" v-if="!collections[activeCollection].preview">
         <md-card class="card">
           <md-card-header>
@@ -655,35 +645,11 @@
             </md-card-header-text>
           </md-card-header>
         </md-card>
-
-
       </div>
+      <!-- *DASHBOARD -->
 
-      <!--
-      <p id="processed" v-if="fileSize">Processed: <b>{{ (100*processed/fileSize).toFixed(0) }}%</b> ({{ (processed/1024).toFixed(1) }}K of {{ (fileSize/1024).toFixed(1) }}K)</p>
-      <h3>Collection: <strong class="primary-color">{{ collections[activeCollection].name }}</strong></h3>
-      <chartist
-          v-for="chart in charts"
-          :key="chart.name"
-          v-if="(collections[activeCollection]collection.length > 1) && (chart.inputCollection == collectionName) && (chart.type != 'Pie')"
-          ratio="ct-major-second"
-          :type="chart.type"
-          :data="{labels:collection.records[chart.labelColumn], series:[collection.records[chart.inputColumn]]}"
-          :options="chartOptions"
-          style="max-width: 400px" >
-      </chartist>
-      <chartist
-          v-for="chart in charts"
-          :key="chart.name"
-          v-if="(collection.length > 1) && (chart.inputCollection == collectionName) && (chart.type == 'Pie')"
-          ratio="ct-major-second"
-          :type="chart.type"
-          :data="{labels:collection.records[chart.labelColumn], series:collection.records[chart.inputColumn]}"
-          :options="chartOptions"
-          style="max-width: 400px" >
-        </chartist>
-      -->
-      <table v-if="collections[activeCollection].display">
+      <!-- TABLE -->
+      <table v-if="collections[activeCollection].pipeline.output.toTable">
         <thead>
           <tr>
             <th></th>
@@ -701,24 +667,24 @@
           </tr>
         </tbody>
       </table>
+
     </div>
-    <p id="size"></p>
-    <p id="text"></p>
-    <textarea id="query" v-if="url.length" rows="5">{{ newQuery }} </textarea>
-    
+
+    <textarea id="query" v-if="sources.length && sources[activeSource].url && sources[activeSource].url.length" rows="5">{{ newQuery }} </textarea>
+
     <!-- Extra information  -->
     <md-snackbar md-position="bottom center" ref="snackbar" md-duration="3000">
       <span>{{ notifyMessage }}</span>
       <md-button class="md-accent" md-theme="light-blue" @click.native="$refs.snackbar.close()">Ok</md-button>
     </md-snackbar>
-    
+
     <!-- Alerts and errors -->
     <md-dialog-alert
     :md-content="error.content"
     :md-ok-text="error.button"
     ref="error">
   </md-dialog-alert>
-  
+
   <!-- Open file dialog -->
   <md-dialog
   class="open-dialog"

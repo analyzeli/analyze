@@ -263,10 +263,17 @@ h1, h2, h3, .something-like-logo {
 /* COLLECTION DASHBOARD */
 .dashboard {
   padding: 5px 0 40px 0;
+  display:flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-content: flex-start;
+  align-items: flex-start;
 }
 
 .dashboard .card {
   width: 30%;
+  margin-right: 2%;
 }
 
 

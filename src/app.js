@@ -86,11 +86,16 @@ class Source {
         newColumns: [],
         showAllColumns: true
       },
-      charts: [],
       functions: [],
-      split: {},
-      stats: [],
-      merge: {}
+      charts: [],
+      // split: {},
+      // stats: [],
+      // merge: {},
+      output: {
+        toTable: true,
+        toMemory: true,
+        toStream: false
+      }
     }
 
     // Add first filter
@@ -124,7 +129,7 @@ class Source {
     }
     // Initialize params from schema
     for (let key in schema) {
-      func.params[key] = null
+      func.params[key] = (schema[key] === 'Columns') ? [] : null
     }
     // Add to pipeline
     this.pipeline.functions.push(func)
@@ -144,7 +149,7 @@ class Source {
     }
     // Init params from schema
     for (let key in schema) {
-      chart.params[key] = null
+      chart.params[key] = (schema[key] === 'Columns') ? [] : null
     }
     // Add to pipeline
     this.pipeline.charts.push(chart)
@@ -171,16 +176,13 @@ class Collection {
 const TopK = require('./stat/topk')
 // var Group = require('./stat/group')
 const Stats = {TopK}
-const querify = new Querify(['run', 'url', 'search', 'searchColumn', 'strictSearch', 'structure', 'charts'])
+
+// Query (GET) parser that reads/writes only certain columns
+const querify = new Querify(['run', 'url', 'filters', 'restructure', 'functions', 'charts', 'output'])
 
 // Clone object
 function clone (obj) {
-  console.log('Cloning: ', obj)
-  const clonedString = JSON.stringify(obj)
-  console.log('Cloned string:', clonedString)
-  const clonedObj = JSON.parse(JSON.stringify(obj))
-  console.log('Cloned object:', clonedObj)
-  return clonedObj
+  return JSON.parse(JSON.stringify(obj))
 }
 
 // Prepare source (from URL)
@@ -190,7 +192,7 @@ function loadUrl () {
     console.log('Loading URL: ', app.url)
     const source = new Source({
       url: app.url,
-      name: app.url.slice(app.url.lastIndexOf('/') + 1, app.url.search(/tsv|csv|xml/g) + 3),
+      name: app.url.split('/').pop().split('?').shift(),
       type: ((app.url.indexOf('csv') > 0) || (app.url.indexOf('tsv' > 0)))
         ? 'csv'
         : 'xml',
@@ -233,20 +235,36 @@ function createStream (f) {
       stream.setEncoding('utf8')
       resolve(stream)
     } else if (f.length) {
+      // const request =
+      // 1st request
       const request = http.get(f, function (res) {
-        console.log('Response: ', res)
         if (res.statusCode === 200) {
           stream = res
           stream.setEncoding('utf8')
           resolve(stream)
         } else {
-          console.log('Error: ', res.statusCode, res.statusMessage)
-          reject(new Error(res.statusMessage))
+          // Error during 1st request
+          console.log('[Error]', res.statusCode, res.statusMessage)
         }
       })
       request.on('error', function (e) {
-        console.log('Error: ', e)
-        reject(e)
+        console.log('[Event][Error]', e)
+        console.log('[Next] Trying to bypass CORS')
+        const fcors = 'https://cors-anywhere.herokuapp.com/' + f
+        // 2nd request
+        const request2 = http.get(fcors, function (res2) {
+          if (res2.statusCode === 200) {
+            stream = res2
+            stream.setEncoding('utf8')
+            resolve(stream)
+          } else {
+            console.log('[Error]', res2.statusCode, res2.statusMessage)
+          }
+        })
+        request2.on('error', function (e) {
+          reject(e)
+          // reject(new Error(res2.statusMessage))
+        })
       })
     }
   })
@@ -364,8 +382,19 @@ async function loadSources (sources) {
 
     // Add a new source to app.sources
     app.sources.push(source)
-    // Preview source
-    app.previewSource(source)
+
+    // Check if we are in RUN mode (loaded from GET vars)
+    if (app.run) {
+      // Deactivate RUN mode
+      app.run = false
+      // Load querified  pipeline
+      Object.assign(source.pipeline, app.runPipeline)
+      // Process
+      app.process(source)
+    } else {
+      // Preview source
+      app.previewSource(source)
+    }
     // app.showCollection(app.collections.length - 1) // show latest added collection
   }
   // Hide file dialog
@@ -553,23 +582,9 @@ async function process (source) {
       var y = app.plotStream.ySize - (parseFloat(path.get(obj, app.plotStream.data.yColumn)) * (app.plotStream.ySize / (app.plotStream.data.yRange.max - app.plotStream.data.yRange.min)) - app.plotStream.data.yRange.min)
       ctx.fillRect(x, y, 2, 2)
     }
-    // Feed the object to all stat functions
-    app.stats.forEach((stat) => {
-      stat.process(obj)
-    })
-    */
-    /*
-    collection.charts.forEach(c => {
-      const d = [parseFloat(obj[c.xColumn])]
-      c.yColumns.forEach(yColumn => {
-        d.push(parseFloat(obj[yColumn]))
-      })
-      c.data.push(d)
-      // if (d.length % 1000) c.g.updateOptions({ 'file': c.data })
-    })
     */
     // Store object in the main collection
-    if (source.storable) {
+    if (source.pipeline.charts.length || source.pipeline.output.toTable || source.pipeline.output.toMemory) {
       const flatObj = flat(obj)
       for (let prop in flatObj) {
         if (collection.records[prop] === undefined) {
@@ -591,8 +606,6 @@ async function process (source) {
       collection.charts.push(chart)
     })
 
-    // app.showError('All data loaded')
-    // c.g.updateOptions({ 'file': c.data })
     app.notify('Processing finished')
     source.loading = false
   })
@@ -704,90 +717,6 @@ function save (collectionNumber, type) {
   FileSaver.saveAs(blob, app.collections[collectionNumber].name + '.' + type)
 }
 
-// 3. Process stream
-/*
-function load () {
-  let app = this
-  app.isStreamLoadingNow = true // Currently loading stream
-  app.wasStreamLoaded = true // Stream already opened (for Reload)
-  app.searchArr = (app.search.length > 0)
-    ? app.search.split(',').map((el) => el.trim())
-    : []
-
-  // TODO: REMOVE PREVIEW FLAG
-  // document.removeEventListener('scroll', resumeStreamIfBottom)
-
-  // Initialize all stream algorithms
-  app.stats.forEach((stat) => {
-    // if (typeof stat.init === 'function')
-    stat.init()
-  })
-
-  if (app.plotStream.display) {
-    var canvas = document.getElementById('canvas')
-    var ctx = canvas.getContext('2d')
-    ctx.fillStyle = '#F5F5F5'
-    ctx.fillRect(0, 0, app.plotStream.xSize, app.plotStream.ySize)
-  }
-
-  var byteStep = app.fileSize / 500
-
-  rs
-    .pipe(through2(function (chunk, enc, callback) {
-      app.processed += chunk.length
-      if (app.fileSize) {
-        var prevBytes = 0
-        if ((app.processed - prevBytes) > byteStep) {
-          app.w = ((app.processed / app.fileSize) * 100).toFixed(1)
-          prevBytes = app.processed
-        }
-      }
-      this.push(chunk)
-      callback()
-    }), { end: false })
-    .pipe(splitStream(app.fileType, app.item), { end: false }) // Split text stream into text blocks (one for each record)
-    .pipe(filterTextStream(app.searchArr, app.fileType), { end: false }) // Filter text blocks if needed
-    .pipe(parseStream(app.fileType, app.delimiter), { end: false }) // 'end' <boolean> End the writer when the reader ends. Defaults to true
-    .pipe(filterObjectStream(app.searchArr, app.searchColumn, app.strictSearch), { end: false })
-    .pipe(restructureObjectStream(app.structure.newColumns, app.structure.showAll), { end: false })
-    .on('data', function (obj) {
-      // Here the pipeline throws parsed, filtered, not flat objects
-      // Plot stream
-      if (app.plotStream.display) {
-        ctx.fillStyle = '#000'
-        var x = parseFloat(path.get(obj, app.plotStream.data.xColumn)) * (app.plotStream.xSize / (app.plotStream.data.xRange.max - app.plotStream.data.xRange.min)) - app.plotStream.data.xRange.min
-        var y = app.plotStream.ySize - (parseFloat(path.get(obj, app.plotStream.data.yColumn)) * (app.plotStream.ySize / (app.plotStream.data.yRange.max - app.plotStream.data.yRange.min)) - app.plotStream.data.yRange.min)
-        ctx.fillRect(x, y, 2, 2)
-      }
-
-      // Feed the object to all stat functions
-      app.stats.forEach((stat) => {
-        stat.process(obj)
-      })
-
-      // Store object in the main collection
-      if (app.collections.main.display || app.collections.main.save) {
-        var flatObj = flat(obj)
-        for (var prop in flatObj) {
-          if (app.collections.main.records[prop] === undefined) {
-            app.collections.main.records[prop] = []
-          }
-          app.collections.main.records[prop][app.total] = flatObj[prop]
-        }
-        app.collections.main.length += 1
-      }
-
-      app.total += 1
-    })
-
-  rs.on('end', () => {
-    app.notify('All data loaded')
-    app.isStreamLoadingNow = false
-  })
-}
-*/
-
-// 3.0.1
 // Open new file or url
 function open () {
   const app = this
@@ -1051,37 +980,20 @@ var appOptions = {
     }
   },
   computed: {
-    statTypes () {
-      return Object.keys(Stats)
-    },
-    streamName () {
-      return (this.file !== undefined) ? this.file.name : this.url.slice(this.url.lastIndexOf('/') + 1, this.url.search(/tsv|csv/g) + 3)
-    },
-    streamInfo () {
-      return (this.file !== undefined) ? 'Last modified: ' + this.file.lastModifiedDate.toLocaleDateString('en-US') : 'Source: ' + this.url
-    },
     newQuery () {
-      let app = this
-      if (app.url.length > 0) {
+      const app = this
+      if (app.sources.length && app.sources[app.activeSource].url && app.sources[app.activeSource].url.length) {
         return window.location.origin + window.location.pathname + querify.getQueryString({
           run: 'true',
-          url: app.url,
-          search: app.search,
-          searchColumn: app.searchColumn,
-          strictSearch: app.strictSearch,
-          structure: app.structure,
-          charts: app.charts
+          url: app.sources[app.activeSource].url,
+          filters: ((app.sources[app.activeSource].pipeline.filters.length === 0) || ((app.sources[app.activeSource].pipeline.filters.length === 1) && (app.sources[app.activeSource].pipeline.filters[0].value.length === 0))) ? null : app.sources[app.activeSource].pipeline.filters,
+          restructure: (app.sources[app.activeSource].pipeline.restructure.showAllColumns) ? null : app.sources[app.activeSource].pipeline.restructure,
+          functions: app.sources[app.activeSource].pipeline.functions,
+          charts: app.sources[app.activeSource].pipeline.charts,
+          output: (app.sources[app.activeSource].pipeline.output.toTable) ? null : app.sources[app.activeSource].pipeline.output
         })
       }
     }
-  },
-  watch: {
-    // selectedColumns: function(val) {
-    //   this.collections.main.records = {}
-    //   val.forEach((column)=>{
-    //     this.collections.main.records[column] = []
-    //   })
-    // }
   },
   mounted () {
     // When app loaded:
@@ -1114,8 +1026,15 @@ var appOptions = {
       if (window.location.search) {
         var queryObj = querify.getQueryObject(window.location.search)
         setTimeout(function () {
+          console.log('Get input params from GET variables', queryObj)
           showApp()
-          app = Object.assign(app, queryObj)
+          app.url = queryObj.url
+          app.run = queryObj.run
+          app.runPipeline = {}
+          ;['filters', 'restructure', 'functions', 'charts', 'output'].forEach(key => {
+            if (queryObj[key]) app.runPipeline[key] = queryObj[key]
+          })
+          console.log(app.runPipeline)
           app.loadUrl()
         }, 100)
       } else {
