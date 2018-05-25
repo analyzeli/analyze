@@ -83,17 +83,19 @@ h1, h2, h3, .something-like-logo {
   top: 0px;
   left: 0px;
   bottom: 0px;
-  background: #1b1d62;
+  background: #070946;
   box-shadow: 0 0 20px rgba(0, 0, 0, .1);
   z-index:3;
-  background: -moz-linear-gradient(-45deg, #1b1d62 0%, #18358e 100%); /* FF3.6-15 */
-  background: -webkit-linear-gradient(-45deg, #1b1d62 0%,#18358e 100%); /* Chrome10-25,Safari5.1-6 */
-  background: linear-gradient(135deg, #1b1d62 0%,#18358e 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
-  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#1b1d62', endColorstr='#18358e',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
+  /*
+  background: -moz-linear-gradient(-45deg, #1b1d62 0%, #18358e 100%);
+  background: -webkit-linear-gradient(-45deg, #1b1d62 0%,#18358e 100%);
+  background: linear-gradient(135deg, #1b1d62 0%,#18358e 100%);
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#1b1d62', endColorstr='#18358e',GradientType=1 ); 
+  */
 }
 
 .source-bar .logo-block {
-  background-color: #080a37;
+  /* background-color: #080a37; */
   padding: 17px 10px;
 }
 
@@ -130,12 +132,24 @@ h1, h2, h3, .something-like-logo {
   font-size: 16px !important;
 }
 
+.source-bar #open-button {
+  width: 88%;
+  margin: 10px 5%;
+  padding-left: 0;
+  padding-right: 0;
+  background-color: #1fa25b !important;
+}
+
+.add-icon {
+  font-size: 21px;
+}
+
 .source-bar .info-block {
   position: absolute;
   bottom: 50px;
   left: 10px;
   right: 10px;
-  background-color: #080a3780;
+  background-color: #4f53a84d;
   border-radius: 3px;
   padding: 10px;
   color: white;
@@ -150,7 +164,7 @@ h1, h2, h3, .something-like-logo {
   width: 0;
   height: 0;
   border-right: 10px solid transparent;
-  border-top: 10px solid #080a3780;
+  border-top: 10px solid #4f53a84d;
   left: 63px;
 }
 
@@ -194,20 +208,51 @@ h1, h2, h3, .something-like-logo {
   margin-bottom: 15px;
 }
 
+.md-list-item .md-list-item-container > .md-icon:first-child {
+  color: #a9aec1;
+}
+.md-active .filter-icon {
+  color: #3f51b5 !important;
+}
+.md-active .structure-icon {
+  color: #006fff !important;
+}
+.md-active .chart-icon {
+  color: #ba3f69 !important;
+}
+.md-active .function-icon {
+  color: #2f986a !important;
+}
+.md-active .output-icon {
+  color: #f0a12a !important;
+}
+
 .md-toolbar {
   justify-content: space-between;
 }
 .md-toolbar .logo {
   width: 108px;
 }
+.md-card-header-text .md-card-header-extra {
+  margin: 5px 0 0 0;
+}
 
 .hidden {
   pointer-events: none;
   opacity: .4;
 }
+
 .stat-card {
   margin-top: 10px;
   margin-bottom: 10px;
+}
+
+.function-card {
+  background-color: #2f986a !important;
+}
+
+.chart-card {
+  background-color: #ac4065 !important;
 }
 
 .content {

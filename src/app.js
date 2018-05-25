@@ -124,7 +124,7 @@ class Source {
     const func = {
       type,
       schema,
-      name: type + '.' + (this.pipeline.charts.length + 1),
+      name: (this.pipeline.functions.length + 1) + '. ' + type.toUpperCase(),
       params: {}
     }
     // Initialize params from schema
@@ -165,6 +165,7 @@ class Collection {
     this.length = 0 // length
     this.display = true // display table
     this.save = true // can save
+    this.loading = false // currently loading?
     this.records = {} // actual table records
     this.charts = [] // current collection chart objects
     this.results = [] // reduce functions results
@@ -472,6 +473,9 @@ async function process (source) {
   if (source.pipeline.filters.length) collection.name += '(f' + source.pipeline.filters.length + ')'
   if (!source.pipeline.restructure.showAllColumns && (source.columns.length !== source.pipeline.restructure.newColumns.length)) collection.name += '(s' + source.pipeline.restructure.newColumns.length + ')'
 
+  // Indicate that collection is also loading (needed when close collection when loading)
+  collection.loading = true
+
   // Store a pipeline that produced this collection
   collection.pipeline = clone(source.pipeline)
 
@@ -608,6 +612,7 @@ async function process (source) {
 
     app.notify('Processing finished')
     source.loading = false
+    collection.loading = false
   })
 } // *process()
 
@@ -787,6 +792,11 @@ var appOptions = {
           'sameColumn': 'Boolean'
         }
       },
+      functionDescriptions: {
+        'sum': 'Sums all non-empty values of selected column',
+        'sqrt': 'Square root',
+        'movingaverage': 'Calculates moving average of perion N for selected column'
+      },
       paramTitles: {
         'inputColumn': 'Input column',
         'outputColumn': 'Output column name',
@@ -869,7 +879,6 @@ var appOptions = {
     open,
     notify,
     generateLink,
-
     loadUrl, // create source from url
     loadFiles, // create source from local file
     loadSources, // create streams for sources
@@ -884,12 +893,25 @@ var appOptions = {
       const app = this
       app.activeCollection = i
       const sourceNumber = app.sources.findIndex(s => s.name === app.collections[i].source.name)
-      app.sources[sourceNumber].pipeline = clone(app.collections[i].pipeline)
+
+      // Activate pipeline of selected (not preview) collection
+      if (!app.collections[i].preview) {
+        app.sources[sourceNumber].pipeline = clone(app.collections[i].pipeline)
+      }
+
+      // Activate collection source
       app.activeSource = sourceNumber
     },
+    // Remove collection by its index
     removeCollection (i) {
       const app = this
+      // Stop source if loading
+      if (app.collections[i].loading) {
+        app.stop(app.collections[i].source)
+      }
+      // Remove collection from app
       app.collections.splice(i, 1)
+      // Reset active collection
       if (i < app.activeCollection) {
         app.activeCollection -= 1
       } else if (i === app.activeCollection) {
@@ -980,6 +1002,21 @@ var appOptions = {
     }
   },
   computed: {
+    beaverMessage () {
+      const app = this
+      if ((app.sources.length === 0) && (app.collections.length === 0)) {
+        return 'You have no active sources at the moment. Click <b>Add source</b> to add some.'
+      } else if ((app.sources.length === 1) && (app.collections.length === 1) && (app.collections[0].preview)) {
+        const source = app.sources[0]
+        if (source.pipeline.functions.length || source.pipeline.charts.length) {
+          return 'To get the results, click <b> Run </b> or press <b>Enter</b>. I\'ll create a new collection for you (on the right)'
+        } else {
+          return 'On the right is a <b>Preview</b> of the source. Add some functions or charts to explore data.'
+        }
+      } else {
+        return 'Everything is processed locally (on your machine, in your browser)'
+      }
+    },
     newQuery () {
       const app = this
       if (app.sources.length && app.sources[app.activeSource].url && app.sources[app.activeSource].url.length) {

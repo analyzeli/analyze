@@ -30,12 +30,10 @@
     </div>
 
     <md-button id="open-button" class="md-primary md-raised" v-on:click.native="open">
-      Add source
+      <md-icon class="add-icon">add</md-icon>Add source
     </md-button>
 
-    <div class="info-block">
-      Everything is processed locally on your machine.
-    </div>
+    <div class="info-block" v-if="beaverMessage.length" v-html="beaverMessage"></div>
     <img src="beaver-small.png" class="beaver"/>
   </div>
 
@@ -69,7 +67,7 @@
 
       <!-- [ FILTER/SEARCH ] -->
       <md-list-item :md-expand-multiple="true">
-        <md-icon class="md-primary">filter_list</md-icon>
+        <md-icon class="filter-icon md-primary">filter_list</md-icon>
         <div class="md-subheading">Filter (Search)</div>
         <md-list-expand>
           <md-card>
@@ -137,7 +135,7 @@
 
       <!-- [ STRUCTURE / COLUMNS ] -->
       <md-list-item :md-expand-multiple="true">
-        <md-icon class="md-primary">device_hub</md-icon>
+        <md-icon class="structure-icon md-primary">device_hub</md-icon>
         <div class="md-subheading">Structure (Columns)</div>
         <md-list-expand>
           <md-card>
@@ -209,7 +207,7 @@
 
       <!-- [ FUNCTIONS ] -->
       <md-list-item :md-expand-multiple="true">
-        <md-icon class="md-primary">functions</md-icon>
+        <md-icon class="function-icon md-primary">functions</md-icon>
         <div class="md-subheading">Functions</div>
         <md-list-expand>
           <md-card>
@@ -229,10 +227,11 @@
               </md-menu>
 
               <!-- Functions blocks -->
-              <md-card class="stat-card md-primary" v-for="(func, index) in source.pipeline.functions" :key="func.name + index">
+              <md-card class="function-card stat-card md-primary" v-for="(func, index) in source.pipeline.functions" :key="func.name + index">
                 <md-card-header>
                   <md-card-header-text>
-                    <div class="md-subhead"> {{ func.name }} </div>
+                    <div class="md-subhead">{{ index + 1 }}. {{ func.type.toUpperCase() }}</div>
+                    <p class="md-card-header-extra">{{ functionDescriptions[func.type] }}</p>
                   </md-card-header-text>
                   <md-menu md-size="4" md-direction="bottom left">
                     <md-button class="md-icon-button" md-menu-trigger>
@@ -296,7 +295,7 @@
 
       <!-- [ CHARTS ] -->
       <md-list-item :md-expand-multiple="true">
-        <md-icon class="md-primary">equalizer</md-icon>
+        <md-icon class="chart-icon md-primary">equalizer</md-icon>
         <div class="md-subheading">Charts</div>
         <md-list-expand>
           <md-card>
@@ -316,10 +315,10 @@
             </md-menu>  
 
             <!-- Chart blocks -->
-            <md-card class="stat-card md-primary" v-for="(chart, index) in source.pipeline.charts" :key="index">
+            <md-card class="chart-card stat-card md-primary" v-for="(chart, index) in source.pipeline.charts" :key="index">
               <md-card-header>
                 <md-card-header-text>
-                  <div class="md-subhead"> {{ chart.name }} </div>
+                  <div class="md-subhead">{{ index + 1 }}. {{ chart.type.toUpperCase() }}</div>
                 </md-card-header-text>
                 <md-menu md-size="4" md-direction="bottom left">
                   <md-button class="md-icon-button" md-menu-trigger>
@@ -424,7 +423,7 @@
 
       <!-- [ OUTPUT ] -->
       <md-list-item :md-expand-multiple="true">
-        <md-icon class="md-primary">file_download</md-icon>
+        <md-icon class="output-icon md-primary">file_download</md-icon>
         <div class="md-subheading">Output</div>
         <md-list-expand>
           <md-card>
