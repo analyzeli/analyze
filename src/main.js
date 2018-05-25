@@ -1,17 +1,20 @@
 const Vue = require('vue')
 const VueMaterial = require('vue-material')
-const Chartist = require('vue-chartist')
+const Highcharts = require('highcharts')
+const VueHighcharts = require('vue-highcharts')
 
-const appOptions = require('./app.vue')
+const app = require('./app.vue')
 
 // Vue plugins
 Vue.use(VueMaterial)
-Vue.use(Chartist)
+Vue.use(VueHighcharts, { Highcharts })
 
 // Initialize app
-var app = new Vue({
+const vm = new Vue({
   el: '#app',
   render: function (createElement) {
-    return createElement(appOptions)
+    return createElement(app)
   }
 })
+
+console.log(`Created a Vue app, attached to: #${vm.$el.id}`)

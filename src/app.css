@@ -39,6 +39,34 @@ h1, h2, h3, .something-like-logo {
   color: #3f51b5;
 }
 
+.tabs {
+  display:flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-content: center;
+  align-items: center;
+}
+
+.tabs .tab {
+  display:flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-content: center;
+  align-items: center;
+  background-color: #DDD;
+  border: 1px solid #fff9;
+}
+
+.tabs .active-tab {
+  background-color: #3f51b5;
+}
+
+.tabs .active-tab button {
+  color: white;
+}
+
 .something-like-logo {
   font-size: 22px;
   font-weight: 800;
@@ -49,17 +77,154 @@ h1, h2, h3, .something-like-logo {
   margin: 12px 5px 16px;
 }
 
-.sidebar {
+.source-bar {
   position: fixed;
-  resize: horizontal;
-  width: 23%;
+  width: 10%;
   top: 0px;
   left: 0px;
   bottom: 0px;
-  background-color: #EAEAEA;
+  background: #070946;
+  box-shadow: 0 0 20px rgba(0, 0, 0, .1);
+  z-index:3;
+  /*
+  background: -moz-linear-gradient(-45deg, #1b1d62 0%, #18358e 100%);
+  background: -webkit-linear-gradient(-45deg, #1b1d62 0%,#18358e 100%);
+  background: linear-gradient(135deg, #1b1d62 0%,#18358e 100%);
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#1b1d62', endColorstr='#18358e',GradientType=1 ); 
+  */
+}
+
+.source-bar .logo-block {
+  /* background-color: #080a37; */
+  padding: 17px 10px;
+}
+
+.source-bar .logo-block .logo {
+  width: 100px;
+}
+
+.source-bar .source-tab {
+  position: relative;
+}
+
+.source-bar .active-tab  {
+  background-color: #444be799;
+}
+
+.source-bar .active-tab button {
+  font-weight: 600;
+}
+
+.source-bar .source-tab button {
+  color: white;
+  padding: 5px;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+.source-bar .source-tab button.md-icon-button {
+  position: absolute;
+  top: 15px;
+  right: 0px;
+}
+.source-bar .source-tab button.md-icon-button .md-icon {
+  color: rgba(255, 255, 255, .4);
+  font-size: 16px !important;
+}
+
+.source-bar #open-button {
+  width: 88%;
+  margin: 10px 5%;
+  padding-left: 0;
+  padding-right: 0;
+  background-color: #1fa25b !important;
+}
+
+.add-icon {
+  font-size: 21px;
+}
+
+.source-bar .info-block {
+  position: absolute;
+  bottom: 50px;
+  left: 10px;
+  right: 10px;
+  background-color: #4f53a84d;
+  border-radius: 3px;
+  padding: 10px;
+  color: white;
+  font-size: 11px;
+}
+
+.source-bar .info-block::after {
+  content: '';
+  display: block;
+  position: absolute;
+  bottom: -10px;
+  width: 0;
+  height: 0;
+  border-right: 10px solid transparent;
+  border-top: 10px solid #4f53a84d;
+  left: 63px;
+}
+
+.source-bar img.beaver {
+  position: absolute;
+  left: 5px;
+  bottom: -3px;
+  width: 65px;
+}
+
+.transform-bar {
+  position: fixed;
+  width: 23%;
+  top: 0px;
+  left: 10%;
+  bottom: 0px;
+  background-color: #FFF;
   /*padding: 5px;*/
   overflow-y: scroll;
+  box-shadow: 0 0 20px rgba(0, 0, 0, .1);
   z-index:2;
+}
+
+.transform-bar .control-button {
+  width: 94%;
+  padding: 6px;
+  margin-top: 8px;
+}
+
+.transform-bar .md-primary {
+  margin-right: 10px;
+}
+.transform-bar .md-card-expand {
+  background-color: #F5F5F5;
+}
+.transform-bar .md-card-active {
+  background-color: white;
+}
+
+.transform-bar .item-card {
+  margin-bottom: 15px;
+}
+
+.md-list-item .md-list-item-container > .md-icon:first-child {
+  color: #a9aec1;
+}
+.md-active .filter-icon {
+  color: #3f51b5 !important;
+}
+.md-active .structure-icon {
+  color: #006fff !important;
+}
+.md-active .chart-icon {
+  color: #ba3f69 !important;
+}
+.md-active .function-icon {
+  color: #2f986a !important;
+}
+.md-active .output-icon {
+  color: #f0a12a !important;
 }
 
 .md-toolbar {
@@ -68,41 +233,35 @@ h1, h2, h3, .something-like-logo {
 .md-toolbar .logo {
   width: 108px;
 }
-
-.sidebar .md-theme-default.md-toolbar {
-  background-color: #1d1f5a;
-}
-
-.sidebar .control-button {
-  width: 94%;
-  padding: 6px;
-  margin-top: 8px;
-}
-
-.sidebar .md-primary {
-  margin-right: 10px;
-}
-.sidebar .md-card-expand {
-  background-color: #F5F5F5;
-}
-.sidebar .md-card-active {
-  background-color: white;
+.md-card-header-text .md-card-header-extra {
+  margin: 5px 0 0 0;
 }
 
 .hidden {
   pointer-events: none;
   opacity: .4;
 }
+
 .stat-card {
   margin-top: 10px;
   margin-bottom: 10px;
 }
+
+.function-card {
+  background-color: #2f986a !important;
+}
+
+.chart-card {
+  background-color: #ac4065 !important;
+}
+
 .content {
   position: relative;
   padding: 15px 25px;
-  margin-left: 23%;
+  margin-left: 33%;
   z-index: 1;
 }
+
 #loading {
   background-color: blue;
   height: 3px;
@@ -110,6 +269,60 @@ h1, h2, h3, .something-like-logo {
   top: 0;
   left: 0;
 }
+
+/* CHARTS */
+.charts {
+}
+
+.charts .chart-container {
+  margin: 20px 0;
+  background-color: white;
+  box-shadow: 0 0 5px #AAA;
+  position: relative;
+}
+
+.charts .chart-container .chart {
+  width: 70%;
+}
+
+.charts .chart-container .chart-options {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30%;
+  padding: 10px;
+  background-color: #F3F3F3;
+}
+
+/* COLLECTION NAME */
+.collection-name {
+  margin: 15px 0 30px 0;
+}
+
+.collection-name .md-input {
+  height: 40px;
+  font-size: 34px;
+}
+
+/* COLLECTION DASHBOARD */
+.dashboard {
+  padding: 5px 0 40px 0;
+  display:flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-content: flex-start;
+  align-items: flex-start;
+}
+
+.dashboard .card {
+  width: 30%;
+  margin-right: 2%;
+}
+
+
+/* TABLE */
 .md-table .md-table-cell {
   position: static;
 }
@@ -119,11 +332,18 @@ h1, h2, h3, .something-like-logo {
 table {
   border-collapse: collapse;
 }
+table thead {
+  background-color: #E4E4E4;
+}
+table thead th {
+  padding: 5px;
+  margin:2px;
+}
 table tr:hover {
-  background-color: #F5F5F5;
+  background-color: #E7E7E7;
 }
 table td {
-  border-top: 1px solid #eee;
+  border-top: 1px solid #dcdcdc;
   font-size: .9em;
   padding: 5px 15px;
   color: #444;
@@ -131,3 +351,11 @@ table td {
 .search-chips .md-input-container:after {
   display: none
 }
+
+/* OPEN DIALOG */
+.md-dialog.md-reference {
+  width: 33% !important;
+}
+
+
+
