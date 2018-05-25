@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://analyze.li/" target="_blank">
-    <img width="150" src="https://analyze.li/images/analyze-logo.png">
+    <img width="160" src="https://analyze.li/images/analyze-logo.png">
   </a>
 </p>
 
