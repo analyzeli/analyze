@@ -36,7 +36,7 @@ const dnd = require('drag-and-drop-files') // Handle Drag and Drop events
 const Querify = require('./utils/querify.js')
 // const queryString = require('query-string')
 
-const CHUNKSIZE = 100 * 1024 // Set chunk size fixed for all file sizes
+// const CHUNKSIZE = 100 * 1024 // Set chunk size fixed for all file sizes
 
 function showApp () {
   document.getElementById('app-loader').style.display = 'none'
@@ -233,7 +233,14 @@ function createStream (f) {
   return new Promise((resolve, reject) => {
     let stream
     if (f.size) {
-      stream = new ReadStream(f, {chunkSize: CHUNKSIZE})
+      console.log('File size: ', f.size)
+      if (f.size < 104857600) {
+        stream = new ReadStream(f, {chunkSize: 102400})
+      } else if (f.size < 524288000) {
+        stream = new ReadStream(f, {chunkSize: 204800})
+      } else {
+        stream = new ReadStream(f, {chunkSize: 512000})
+      }
       stream.setEncoding('utf8')
       resolve(stream)
     } else if (f.length) {
@@ -810,6 +817,10 @@ var appOptions = {
           'outputColumn': 'String',
           'sameColumn': 'Boolean'
         },
+        'std': {
+          'inputColumn': 'Column',
+          'sample': 'Boolean'
+        },
         'variance': {
           'inputColumn': 'Column',
           'sample': 'Boolean'
@@ -822,6 +833,7 @@ var appOptions = {
         'mean': 'Average of the numbers',
         'sum': 'Sums all non-empty values of selected column',
         'sqrt': 'Square root',
+        'std': 'Standard deviation',
         'movingaverage': 'Calculates moving average of perion N for selected column',
         'variance': 'Squared deviation from the mean (sample/population)'
       },
@@ -830,7 +842,7 @@ var appOptions = {
         'outputColumn': 'Output column name',
         'sameColumn': 'Change input column',
         'period': 'Period',
-        'sample': 'Sample variance (ddof = 1)',
+        'sample': 'Sample, not population (ddof = 1)',
         'xColumn': 'X-axis',
         'yColumns': 'Y-axis (multiple)',
         'yLabel': 'Y-axis label (optional)'

@@ -25,10 +25,11 @@ module.exports = function (t, params, valueCallback) {
     case 'movingaverage':
       const ma = Ma(params.period)
       return applyStream(obj => { obj[params.outputColumn] = ma(parseFloat(obj[params.inputColumn])) })
+    case 'std' :
+      const tempVariance = Stats.Variance({ddof: params.sample ? 1 : 0})
+      return reduceStream((acc, obj) => Math.sqrt(tempVariance(parseFloat(obj[params.inputColumn]))), 0, valueCallback)
     case 'variance' :
       const variance = Stats.Variance({ddof: params.sample ? 1 : 0})
       return reduceStream((acc, obj) => variance(parseFloat(obj[params.inputColumn])), 0, valueCallback)
   }
-
-  // return functionStreams[t.toLowerCase()](params, valueCallback)
 }
