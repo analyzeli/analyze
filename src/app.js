@@ -9,6 +9,7 @@ const getXmlStreamStructure = require('./utils/get-xml-stream-structure.js') // 
 const splitStream = require('./utils/split-stream')
 const parseStream = require('./utils/parse-stream')
 const functionStream = require('./utils/function-stream')
+const isExactlyNaN = require('./utils/is-exactly-nan')
 
 // const xmlObjects = require('xml-objects') // Parse XML
 // const csv = require('csv-parser') // Parse CSV
@@ -594,7 +595,11 @@ async function process (source) {
         if (collection.records[prop] === undefined) {
           collection.records[prop] = []
         }
-        collection.records[prop][collection.length] = flatObj[prop]
+        // Here we use weird JS feature: NaN !== NaN
+        // If we just use isNaN(), it will also check string if they are number. We don't need that.
+        collection.records[prop][collection.length] = (!isExactlyNaN(flatObj[prop]))
+          ? flatObj[prop]
+          : '' // The only value that will be converted to '' is NaN
       }
       collection.length += 1
     }
@@ -777,6 +782,26 @@ var appOptions = {
         }
       },
       functionSchemas: {
+        'abs': {
+          'inputColumn': 'Column',
+          'outputColumn': 'String',
+          'sameColumn': 'Boolean'
+        },
+        'max': {
+          'inputColumn': 'Column'
+        },
+        'mean': {
+          'inputColumn': 'Column'
+        },
+        'min': {
+          'inputColumn': 'Column'
+        },
+        'movingaverage': {
+          'period': 'Number',
+          'inputColumn': 'Column',
+          'outputColumn': 'String',
+          'sameColumn': 'Boolean'
+        },
         'sum': {
           'inputColumn': 'Column'
         },
@@ -785,23 +810,27 @@ var appOptions = {
           'outputColumn': 'String',
           'sameColumn': 'Boolean'
         },
-        'movingaverage': {
-          'period': 'Number',
+        'variance': {
           'inputColumn': 'Column',
-          'outputColumn': 'String',
-          'sameColumn': 'Boolean'
+          'sample': 'Boolean'
         }
       },
       functionDescriptions: {
+        'abs': 'Absolute values',
+        'max': 'Find maximum',
+        'min': 'Find minimum',
+        'mean': 'Average of the numbers',
         'sum': 'Sums all non-empty values of selected column',
         'sqrt': 'Square root',
-        'movingaverage': 'Calculates moving average of perion N for selected column'
+        'movingaverage': 'Calculates moving average of perion N for selected column',
+        'variance': 'Squared deviation from the mean (sample/population)'
       },
       paramTitles: {
         'inputColumn': 'Input column',
         'outputColumn': 'Output column name',
         'sameColumn': 'Change input column',
         'period': 'Period',
+        'sample': 'Sample variance (ddof = 1)',
         'xColumn': 'X-axis',
         'yColumns': 'Y-axis (multiple)',
         'yLabel': 'Y-axis label (optional)'
