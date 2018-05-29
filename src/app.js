@@ -800,6 +800,9 @@ var appOptions = {
         'mean': {
           'inputColumn': 'Column'
         },
+        'median': {
+          'inputColumn': 'Column'
+        },
         'min': {
           'inputColumn': 'Column'
         },
@@ -831,6 +834,7 @@ var appOptions = {
         'max': 'Find maximum',
         'min': 'Find minimum',
         'mean': 'Average of the numbers',
+        'median': 'Find median value',
         'sum': 'Sums all non-empty values of selected column',
         'sqrt': 'Square root',
         'std': 'Standard deviation',

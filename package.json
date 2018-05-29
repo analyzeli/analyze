@@ -1,6 +1,6 @@
 {
   "name": "analyze",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "description": "Data manipulation in a browser",
   "main": "index.html",
   "scripts": {
@@ -43,7 +43,7 @@
     "json2csv": "^3.7.3",
     "moment": "^2.22.1",
     "object-path": "^0.11.4",
-    "online-stats": "^1.0.0",
+    "online-stats": "^1.0.2",
     "query-string": "^4.3.2",
     "split": "^1.0.0",
     "stream-combiner": "^0.2.2",

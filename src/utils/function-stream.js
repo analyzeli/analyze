@@ -15,6 +15,9 @@ module.exports = function (t, params, valueCallback) {
     case 'mean' :
       const mean = Stats.Mean()
       return reduceStream((acc, obj) => mean(parseFloat(obj[params.inputColumn])), 0, valueCallback)
+    case 'median' :
+      const median = Stats.Median()
+      return reduceStream((acc, obj) => median(parseFloat(obj[params.inputColumn])), 0, valueCallback)
     case 'min' :
       const min = Stats.Min()
       return reduceStream((acc, obj) => min(parseFloat(obj[params.inputColumn])), 0, valueCallback)
