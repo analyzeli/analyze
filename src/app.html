@@ -51,7 +51,9 @@
         </div>
         <div class="md-subhead" v-if="sources[activeSource].size">
           Source size: {{ (sources[activeSource].size / (1024 ** 2)).toFixed(2) }}Mb<br>
-          Modified: {{ sources[activeSource].file.lastModifiedDate.toUTCString() }}<br>
+          <span v-if="sources[activeSource].file.lastModified">
+            Modified: {{ (new Date(sources[activeSource].file.lastModified)).toUTCString() }}<br>
+          </span>
           Type: {{ sources[activeSource].type.toUpperCase() }}
         </div>
         <div class="md-subhead" v-if="sources[activeSource].url">
