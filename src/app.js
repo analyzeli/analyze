@@ -3,6 +3,7 @@ const ReadStream = require('filestream').read
 const through2 = require('through2') // Transform stream
 const filter = require('stream-filter') // Filter string and obj streams
 const FileSaver = require('file-saver')
+const StreamSaver = require('streamsaver')
 const http = require('stream-http') // XHR as a stream
 const getCsvStreamStructure = require('./utils/get-csv-stream-structure.js') // Get CSV header
 const getXmlStreamStructure = require('./utils/get-xml-stream-structure.js') // Get XML nodes and repeated node
@@ -10,6 +11,9 @@ const splitStream = require('./utils/split-stream')
 const parseStream = require('./utils/parse-stream')
 const functionStream = require('./utils/function-stream')
 const isExactlyNaN = require('./utils/is-exactly-nan')
+
+const TextEncoder = window['TextEncoder']
+const encoder = new TextEncoder()
 
 // const xmlObjects = require('xml-objects') // Parse XML
 // const csv = require('csv-parser') // Parse CSV
@@ -21,7 +25,8 @@ const isExactlyNaN = require('./utils/is-exactly-nan')
 
 // Objects
 const flat = require('flat')
-const json2csv = require('json2csv') // Convert array of objects to CSV
+const J2SParser = require('json2csv').Parser // Convert array of objects to CSV
+const X2JParser = new (require('xml2js')).Builder({'pretty': false, 'indent': '', 'newline': ''})
 // const path = require('object-path') // Acess nested object properties with a variable -- everything is flat now
 // const saveToCollection = require('./save-to-collection.js')
 // const escape = require('html-escape') // Sanitize url
@@ -95,7 +100,8 @@ class Source {
       output: {
         toTable: true,
         toMemory: true,
-        toStream: false
+        toStream: false,
+        format: 'csv'
       }
     }
 
@@ -234,13 +240,16 @@ function createStream (f) {
     let stream
     if (f.size) {
       console.log('File size: ', f.size)
+      /*
       if (f.size < 104857600) {
         stream = new ReadStream(f, {chunkSize: 102400})
       } else if (f.size < 524288000) {
         stream = new ReadStream(f, {chunkSize: 204800})
       } else {
-        stream = new ReadStream(f, {chunkSize: 512000})
+        stream = new ReadStream(f, {chunkSize: 1024000})
       }
+      */
+      stream = new ReadStream(f, {chunkSize: 102400})
       stream.setEncoding('utf8')
       resolve(stream)
     } else if (f.length) {
@@ -476,8 +485,22 @@ async function process (source) {
   source.progress = 0 // Nullify the progress
   source.processed = 0 // Nullify the processed byte counter
 
+  // Prepare write stream if needed
+  let writer
+  if (source.pipeline.output.toStream) {
+    const name = source.name.split('.').slice(0, -1).join('.') + '.' + source.pipeline.output.format
+    const columns = source.pipeline.restructure.showAllColumns
+      ? source.columns
+      : source.pipeline.restructure.newColumns
+    const header = (source.pipeline.output.format === 'csv') ? columns.join(',') + '\n' : ''
+    console.log('Vue: Initializing write stream', name)
+    const ws = StreamSaver.createWriteStream(name)
+    writer = ws.getWriter()
+    writer.write(encoder.encode(header))
+  }
+
   // Create a new collection
-  const collection = new Collection(source)
+  let collection = new Collection(source)
   if (source.pipeline.filters.length) collection.name += '(f' + source.pipeline.filters.length + ')'
   if (!source.pipeline.restructure.showAllColumns && (source.columns.length !== source.pipeline.restructure.newColumns.length)) collection.name += '(s' + source.pipeline.restructure.newColumns.length + ')'
 
@@ -510,7 +533,9 @@ async function process (source) {
   }
   */
 
-  const byteStep = source.size / 500
+  let byteStep = source.size / 500
+  byteStep = (byteStep < 200000) ? byteStep : 200000
+  console.log(byteStep)
 
   // Create main stream, calculate progress, split on pieces
   source.mainStream = source.stream2
@@ -584,6 +609,34 @@ async function process (source) {
   source.mainStream = source.mainStream
     .pipe(restructureObjectStream(source.pipeline.restructure.newColumns, source.pipeline.restructure.showAllColumns), { end: false })
 
+  if (source.pipeline.output.toStream) {
+    source.mainStream = source.mainStream
+      .pipe(
+        through2.obj(
+          function (obj, enc, callback) {
+            let piece
+            if (source.pipeline.output.format === 'csv') {
+              const j2sp = new J2SParser({
+                fields: (source.pipeline.restructure ? source.pipeline.restructure.newColumns : source.columns),
+                header: false
+              })
+              piece = j2sp.parse(obj)
+            } else if (source.pipeline.output.format === 'json') {
+              piece = JSON.stringify(obj)
+            } else {
+              piece = X2JParser.buildObject(obj)
+            }
+
+            writer.write(encoder.encode(piece + '\n')).then(() => {
+              this.push(obj)
+              callback()
+            })
+          }
+        ),
+        { end: false }
+      )
+  }
+
   source.mainStream.on('data', function (obj) {
     // Here the pipeline throws parsed, filtered, not flat objects
     // Plot stream
@@ -596,6 +649,7 @@ async function process (source) {
     }
     */
     // Store object in the main collection
+
     if (source.pipeline.charts.length || source.pipeline.output.toTable || source.pipeline.output.toMemory) {
       const flatObj = flat(obj)
       for (let prop in flatObj) {
@@ -614,6 +668,12 @@ async function process (source) {
 
   source.stream2.on('end', () => {
     // Initialize charts
+    if (source.pipeline.output.toStream) {
+      console.log('Writer: Closing the stream')
+      setTimeout(() => {
+        writer.close()
+      }, 500)
+    }
     console.log('[Event] Stream end')
     console.log('[Loop] Loading charts (source -> collection)')
     source.pipeline.charts.forEach(c => {
@@ -725,7 +785,8 @@ function save (collectionNumber, type) {
   switch (type) {
     case 'csv':
       const header = getCollectionHeader(app.collections[collectionNumber])
-      blob = new window.Blob([json2csv({data: objects, fields: header})], {type: 'text/plain;charset=utf-8'})
+      const j2sparser = new J2SParser({fields: header})
+      blob = new window.Blob([j2sparser.parse(objects)], {type: 'text/plain;charset=utf-8'})
       break
     case 'json':
       blob = new window.Blob([JSON.stringify(objects)], {type: 'text/plain;charset=utf-8'})
@@ -774,7 +835,9 @@ function resetState () {
   }
 }
 
-var appOptions = {
+// Writer object to direct stream to a file
+
+const appOptions = {
   data: function () {
     return {
       sources: [],
@@ -932,6 +995,22 @@ var appOptions = {
     stop, // stop source
     save, // save collection
     resetState,
+    /*
+    initWriteStream () {
+      const app = this
+      const source = app.sources[app.activeSource]
+      const name = source.name.split('.').slice(0, -1).join('.') + '.' + source.pipeline.output.format
+      const columns = source.pipeline.restructure.showAllColumns
+        ? source.columns
+        : source.pipeline.restructure.newColumns
+      console.log('Columns: ', columns)
+      const header = (source.pipeline.output.format === 'csv') ? columns.join(',') + '\n' : ' '
+      console.log('Vue: Initializing write stream', name)
+      ws = StreamSaver.createWriteStream(name)
+      writer = ws.getWriter()
+      writer.write(encoder.encode(header))
+    },
+    */
     // Collection methods
     showCollection (i) {
       console.log('Switching to collection: ', i)
@@ -1079,10 +1158,10 @@ var appOptions = {
   },
   mounted () {
     // When app loaded:
-    let app = this
+    const app = this
     // Check if a browser supports needed API
     if (window.File && window.FileReader && window.FileList && window.Blob) {
-      // Detect ENTER
+      // Detect ENTER, process source
       document.addEventListener('keyup', function (e) {
         if ((e.keyCode === 13) && app.sources.length && !app.sources[app.activeSource].loading) {
           console.log('[Event] Keypressed: ENTER. Start processing')

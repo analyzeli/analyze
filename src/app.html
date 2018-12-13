@@ -432,13 +432,21 @@
             <md-card-content>
               <md-checkbox v-model="source.pipeline.output.toTable" class="md-primary" :disabled="(!source.pipeline.output.toTable && !source.pipeline.output.toMemory)">
                 Display table
+              </md-checkbox><br>
+              <md-checkbox v-model="source.pipeline.output.toMemory" class="md-primary" :disabled="((source.pipeline.output.toTable || (source.pipeline.charts.length > 0)) && source.pipeline.output.toMemory)">
+                Store output in memory
+              </md-checkbox><br>
+              <md-checkbox v-model="source.pipeline.output.toStream" class="md-primary">
+                Stream to file (experimental)
               </md-checkbox>
-              <md-checkbox v-model="source.pipeline.output.toMemory" class="md-primary" :disabled="((source.pipeline.output.toTable || source.pipeline.charts.length) && source.pipeline.output.toMemory)">
-                Store output in memory (needed for charts and table)
-              </md-checkbox>
-              <md-checkbox v-model="source.pipeline.output.toStream" class="md-primary" disabled>
-                Stream output to file (coming soon...)
-              </md-checkbox>
+              <md-input-container v-if="source.pipeline.output.toStream">
+                <label>Output format</label>
+                <md-select v-model="source.pipeline.output.format">
+                  <md-option value="csv">CSV</md-option>
+                  <md-option value="xml">XML</md-option>
+                  <md-option value="json">JSON</md-option>
+                </md-select>
+              </md-input-container>
             </md-card-content>
           </md-card>
         </md-list-expand>
