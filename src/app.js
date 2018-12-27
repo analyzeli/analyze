@@ -23,6 +23,8 @@ const encoder = new TextEncoder()
 // const lineParser = require('csv-parse/lib/sync') // Parse CSV line
 // const xmlNodes = require('xml-nodes')
 
+const HandsonTable = require('handsontable')
+
 // Objects
 const flat = require('flat')
 const J2SParser = require('json2csv').Parser // Convert array of objects to CSV
@@ -42,6 +44,19 @@ const Querify = require('./utils/querify.js')
 // const queryString = require('query-string')
 
 // const CHUNKSIZE = 100 * 1024 // Set chunk size fixed for all file sizes
+
+// Console log helper
+function log (...args) {
+  if (!process.env || !(process.env.NODE_ENV === 'production')) {
+    args.forEach(a => {
+      if ((typeof a === 'object') && !Array.isArray(a)) {
+        console.log(JSON.stringify(a, null, 2))
+      } else {
+        console.log(a)
+      }
+    })
+  }
+}
 
 function showApp () {
   document.getElementById('app-loader').style.display = 'none'
@@ -168,16 +183,18 @@ class Source {
 }
 
 class Collection {
-  constructor (source) {
-    this.length = 0 // length
-    this.display = true // display table
-    this.save = true // can save
-    this.loading = false // currently loading?
-    this.records = {} // actual table records
+  constructor (source, preview) {
     this.charts = [] // current collection chart objects
+    this.display = true // display table
+    this.length = 0 // length
+    this.loading = false // currently loading?
+    this.name = source ? source.name.split('.')[0] : 'New collection' // name, same as source name
+    this.preview = preview
+    this.records = {} // actual table records
     this.results = [] // reduce functions results
+    this.save = true // can save
     this.source = source // collection info source
-    this.name = source.name.split('.')[0] // name, same as source name
+    this.values = [] // table records in row by row format
   }
 }
 
@@ -432,10 +449,15 @@ function previewSource (source) {
   */
   const app = this
 
-  // Create new collection for the source
-  const collection = new Collection(source)
+  // Create new collection for the source, true - preview
+  const collection = new Collection(source, true)
   collection.pipeline = clone(source.pipeline)
   collection.name += '(preview)'
+
+  const columns = source.columns
+  collection.values.push(columns.slice(0))
+
+  ht.loadData(collection.values)
 
   // Indicate that it's a preview collection
   collection.preview = true
@@ -456,20 +478,31 @@ function previewSource (source) {
 
   source.previewStream.on('data', function (obj) {
     // If stream sends data read it anyway. Not to miss between line
+    let line = []
     for (let prop in obj) {
-      if (collection.records[prop] === undefined) {
-        collection.records[prop] = []
-      }
-      collection.records[prop].push(obj[prop])
+      /// if (collection.records[prop] === undefined) {
+      ///  collection.records[prop] = []
+      /// }
+      line[columns.indexOf(prop)] = obj[prop]
+      /// collection.records[prop].push(obj[prop])
     }
+    collection.values.push(line)
     collection.length += 1
 
     // Check counter
     if (source.counter < 49) {
       source.counter += 1
     } else {
+      ht.loadData(collection.values)
+      ht.render()
       source.previewStream.pause()
     }
+  })
+
+  source.stream.on('end', () => {
+    // Initialize charts
+    ht.loadData(collection.values)
+    ht.render()
   })
 
   app.notify('Preview opened. Scroll to load more...')
@@ -499,8 +532,8 @@ async function process (source) {
     writer.write(encoder.encode(header))
   }
 
-  // Create a new collection
-  let collection = new Collection(source)
+  // Create a new collection, false - not preview
+  let collection = new Collection(source, false)
   if (source.pipeline.filters.length) collection.name += '(f' + source.pipeline.filters.length + ')'
   if (!source.pipeline.restructure.showAllColumns && (source.columns.length !== source.pipeline.restructure.newColumns.length)) collection.name += '(s' + source.pipeline.restructure.newColumns.length + ')'
 
@@ -509,6 +542,12 @@ async function process (source) {
 
   // Store a pipeline that produced this collection
   collection.pipeline = clone(source.pipeline)
+
+  const columns = source.pipeline.restructure.newColumns
+  collection.values.push(columns.slice(0))
+
+  // Update table data
+  ht.loadData(collection.values)
 
   app.collections.push(collection)
   app.activeCollection = app.collections.length - 1
@@ -609,6 +648,7 @@ async function process (source) {
   source.mainStream = source.mainStream
     .pipe(restructureObjectStream(source.pipeline.restructure.newColumns, source.pipeline.restructure.showAllColumns), { end: false })
 
+  // Stream to file (Chrome & Opera)
   if (source.pipeline.output.toStream) {
     source.mainStream = source.mainStream
       .pipe(
@@ -652,28 +692,36 @@ async function process (source) {
 
     if (source.pipeline.charts.length || source.pipeline.output.toTable || source.pipeline.output.toMemory) {
       const flatObj = flat(obj)
+      let line = []
       for (let prop in flatObj) {
-        if (collection.records[prop] === undefined) {
-          collection.records[prop] = []
-        }
+        /// if (collection.records[prop] === undefined) {
+        ///  collection.records[prop] = []
+        /// }
+        // The only value that will be converted to '' is NaN
+        const value = (!isExactlyNaN(flatObj[prop])) ? flatObj[prop] : ''
+
+        line[columns.indexOf(prop)] = value
+        /// collection.records[prop][collection.length] = value
         // Here we use weird JS feature: NaN !== NaN
         // If we just use isNaN(), it will also check string if they are number. We don't need that.
-        collection.records[prop][collection.length] = (!isExactlyNaN(flatObj[prop]))
-          ? flatObj[prop]
-          : '' // The only value that will be converted to '' is NaN
       }
+      collection.values.push(line)
       collection.length += 1
+      // ht.render()
     }
   })
 
   source.stream2.on('end', () => {
     // Initialize charts
+    ht.loadData(collection.values)
+    ht.render()
     if (source.pipeline.output.toStream) {
       console.log('Writer: Closing the stream')
       setTimeout(() => {
         writer.close()
       }, 500)
     }
+    log('Collection: ', collection)
     console.log('[Event] Stream end')
     console.log('[Loop] Loading charts (source -> collection)')
     source.pipeline.charts.forEach(c => {
@@ -742,6 +790,8 @@ chart.yColumns.forEach((column) => {
 
 function stop (source) {
   const app = this
+  ht.loadData(app.collections[app.activeCollection].values)
+  ht.render()
   console.log('Stopping source: ', source.name)
   source.stream2.pause()
   source.mainStream.pause()
@@ -756,24 +806,22 @@ function stop (source) {
 
 function collectionToObjects (collection) {
   const objects = []
-  for (let i = 0; i < collection.length; i++) {
+  for (let i = 1; i < collection.values.length; i++) {
     const object = {}
-    for (let column in collection.records) {
-      if (collection.records[column][i] !== undefined) {
-        object[column] = collection.records[column][i]
-      }
-    }
+    collection.values[0].forEach((col, coli) => {
+      object[col] = collection.values[i][coli]
+    })
     objects.push(object)
   }
   return objects
 }
 
 function getCollectionHeader (collection) {
-  const header = []
-  for (let column in collection.records) {
-    header.push(column)
-  }
-  return header
+  /// const header = []
+  /// for (let column in collection.records) {
+  ///   header.push(column)
+  /// }
+  return collection.values[0]
 }
 
 // Save results to a file
@@ -836,8 +884,12 @@ function resetState () {
 }
 
 // Writer object to direct stream to a file
+let ht
 
 const appOptions = {
+  /*
+    DATA
+  */
   data: function () {
     return {
       sources: [],
@@ -1012,10 +1064,21 @@ const appOptions = {
     },
     */
     // Collection methods
+    newCollection () {
+      const collection = new Collection(null, false)
+      this.collections.push(collection)
+      this.showCollection(this.collections.length - 1)
+    },
     showCollection (i) {
       console.log('Switching to collection: ', i)
       const app = this
       app.activeCollection = i
+
+      // Update table
+      ht.loadData(app.collections[i].values)
+      ht.render()
+
+      // Get source number
       const sourceNumber = app.sources.findIndex(s => s.name === app.collections[i].source.name)
 
       // Activate pipeline of selected (not preview) collection
@@ -1159,15 +1222,63 @@ const appOptions = {
   mounted () {
     // When app loaded:
     const app = this
+
+    let htContainer = document.getElementById('hottable')
+    ht = new HandsonTable(htContainer, {
+      data: [],
+      afterChange: () => {
+        if (app.collections.length) {
+          // app.collections[app.activeCollection].values.push([])
+          app.$set(app.collections[app.activeCollection].values, app.collections[app.activeCollection].values)
+          ht.render()
+        }
+        // log('Table: Force update Vue')
+        // app.$forceUpdate()
+      },
+      filters: true,
+      contextMenu: true,
+      observeChanges: false,
+      allowInsertColumn: true,
+      allowRemoveColumn: true,
+      allowInsertRow: true,
+      allowRemoveRow: true,
+      autoColumnSize: {
+        samplingRatio: 23
+      },
+      dropdownMenu: true,
+      fixedRowsTop: 1,
+      manualRowMove: true,
+      manualColumnMove: true,
+      colHeaders: false,
+      rowHeaders: function (index) {
+        return (index > 0) ? index : ''
+      },
+      stretchH: 'all',
+      cells: function (row, col) {
+        let cellProperties = {}
+        if (row === 0) {
+          cellProperties.renderer = function firstRowRenderer (instance, td, row, col, prop, value, cellProperties) {
+            HandsonTable.renderers.TextRenderer.apply(this, arguments)
+            td.style.fontWeight = 'bold'
+            td.style.color = 'black'
+            td.style.background = '#EEE'
+          }
+        }
+        return cellProperties
+      }
+    })
+
     // Check if a browser supports needed API
     if (window.File && window.FileReader && window.FileList && window.Blob) {
       // Detect ENTER, process source
+      /*
       document.addEventListener('keyup', function (e) {
         if ((e.keyCode === 13) && app.sources.length && !app.sources[app.activeSource].loading) {
           console.log('[Event] Keypressed: ENTER. Start processing')
           app.process(app.sources[app.activeSource])
         }
       })
+      */
 
       // Add scroll event that preloads some data
       document.addEventListener('scroll', function () {

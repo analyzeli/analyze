@@ -477,9 +477,9 @@
   -->
   <div class="content" v-bind:style="{marginLeft: (sources.length) ? '33%' : '11%'}">
     <!-- COLLECTION TABS -->
-    <div 
+    <div
       class="tabs"
-      v-if="collections.length">
+    >
       <div
         v-for="(collection, i) in collections"
         :key="collection.name + i"
@@ -497,6 +497,13 @@
           <md-icon>clear</md-icon>
         </md-button>
       </div>
+      <!--
+      <div class="tab">
+        <md-button v-on:click.native="newCollection()">
+          New collection
+        </md-button>
+      </div>
+      -->
     </div>
 
     <!-- Generate link-->
@@ -529,7 +536,34 @@
         <md-input v-model="collections[activeCollection].name"></md-input>
       </md-input-container>
 
-      <!-- Charts -->
+
+      <!-- DASHBOARD -->
+      <div class="dashboard" v-if="true || !collections[activeCollection].preview">
+        <md-card class="card">
+          <md-card-header>
+            <md-card-header-text>
+              <div class="md-title">{{ collections[activeCollection].length }} </div>
+              <div class="md-subhead">Number of records loaded...</div>
+            </md-card-header-text>
+          </md-card-header>
+          <md-card-actions v-if="!collections[activeCollection].loading">
+            <md-button class="md-dense" v-if="collections[activeCollection].length && collections[activeCollection].save" v-on:click.native="save(activeCollection, 'csv')"><md-icon class="primary-color">file_download</md-icon> Save CSV</md-button>
+            <md-button class="md-dense" v-if="collections[activeCollection].length && collections[activeCollection].save" v-on:click.native="save(activeCollection, 'json')"><md-icon class="primary-color">file_download</md-icon> Save JSON</md-button>
+          </md-card-actions>
+        </md-card>
+
+        <md-card class="card" v-for="res in collections[activeCollection].results">
+          <md-card-header>
+            <md-card-header-text>
+              <div class="md-title">{{ res.value }} </div>
+              <div class="md-subhead">{{ res.name }}</div>
+            </md-card-header-text>
+          </md-card-header>
+        </md-card>
+      </div>
+      <!-- *DASHBOARD -->
+
+      <!-- CHARTS -->
       <div class="charts" ref="charts">
         <div class="chart-container" v-for="chart in collections[activeCollection].charts">
           <div class="chart">
@@ -542,15 +576,15 @@
                 zoomType: 'x'
               },
               xAxis: {
-                categories: chart.collection.records[chart.params.xColumn]
-                },
+                categories: chart.collection.values.map(v => v[chart.collection.values[0].indexOf(chart.params.xColumn)])
+              },
               tooltip: {
                 shared: true,
                 crosshairs: true
               },
               series: chart.params.yColumns.map(c => ({
                 name: c,
-                data: chart.collection.records[c].map(v => parseFloat(v))
+                data: chart.collection.values.map(v => parseFloat(v[chart.collection.values[0].indexOf(c)]))
               }))
             }"></highcharts>
 
@@ -575,7 +609,7 @@
                 <label>{{ paramTitles[param] }}</label>
                 <md-select v-model="chart.params[param]">
                   <md-option 
-                    v-for="(values, column) in collections[activeCollection].records"
+                    v-for="column in collections[activeCollection].values[0]"
                     v-if="column && column.length"
                     :key="column"
                     :value="column"
@@ -590,7 +624,7 @@
                 <label>{{ paramTitles[param] }}</label>
                 <md-select multiple v-model="chart.params[param]">
                   <md-option 
-                    v-for="(values, column) in collections[activeCollection].records"
+                    v-for="column in collections[activeCollection].values[0]"
                     v-if="column && column.length"
                     :key="column"
                     :value="column"
@@ -630,34 +664,8 @@
       </div>
       <!-- *CHARTS -->
 
-
-      <!-- DASHBOARD -->
-      <div class="dashboard" v-if="!collections[activeCollection].preview">
-        <md-card class="card">
-          <md-card-header>
-            <md-card-header-text>
-              <div class="md-title">{{ collections[activeCollection].length }} </div>
-              <div class="md-subhead">Number of records loaded...</div>
-            </md-card-header-text>
-          </md-card-header>
-          <md-card-actions v-if="!collections[activeCollection].loading">
-            <md-button class="md-dense" v-if="collections[activeCollection].length && collections[activeCollection].save" v-on:click.native="save(activeCollection, 'csv')"><md-icon class="primary-color">file_download</md-icon> Save CSV</md-button>
-            <md-button class="md-dense" v-if="collections[activeCollection].length && collections[activeCollection].save" v-on:click.native="save(activeCollection, 'json')"><md-icon class="primary-color">file_download</md-icon> Save JSON</md-button>
-          </md-card-actions>
-        </md-card>
-
-        <md-card class="card" v-for="res in collections[activeCollection].results">
-          <md-card-header>
-            <md-card-header-text>
-              <div class="md-title">{{ res.value }} </div>
-              <div class="md-subhead">{{ res.name }}</div>
-            </md-card-header-text>
-          </md-card-header>
-        </md-card>
-      </div>
-      <!-- *DASHBOARD -->
-
       <!-- TABLE -->
+      <!--
       <table v-if="collections[activeCollection].pipeline.output.toTable">
         <thead>
           <tr>
@@ -676,8 +684,12 @@
           </tr>
         </tbody>
       </table>
-
+      -->
     </div>
+
+    <!-- Table with values -->
+    <div id="gradient" v-if="collections.length && collections[activeCollection].preview"></div>
+    <div id="hottable"></div>
 
     <textarea id="query" v-if="sources.length && sources[activeSource].url && sources[activeSource].url.length" rows="5">{{ newQuery }} </textarea>
 
