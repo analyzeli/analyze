@@ -72,7 +72,7 @@ h1, h2, h3, .something-like-logo {
   top: 0px;
   left: 0px;
   bottom: 0px;
-  background: #070946;
+  background: #12112c;
   box-shadow: 0 0 20px rgba(0, 0, 0, .1);
   z-index:3;
   /*
@@ -85,7 +85,9 @@ h1, h2, h3, .something-like-logo {
 
 .source-bar .logo-block {
   /* background-color: #080a37; */
+  margin-top: 5px;
   padding: 17px 10px;
+  text-align: center
 }
 
 .source-bar .logo-block .logo {
@@ -94,14 +96,19 @@ h1, h2, h3, .something-like-logo {
 
 .source-bar .source-tab {
   position: relative;
+  border-left: 2px solid #0f2d54;
 }
 
 .source-bar .active-tab  {
-  background-color: #444be799;
+  border-left: 2px solid #006dff;
 }
 
 .source-bar .active-tab button {
   font-weight: 600;
+}
+
+.source-tabs {
+  margin: 7px 0 15px 0;
 }
 
 .source-bar .source-tab button {
