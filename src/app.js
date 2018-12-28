@@ -512,7 +512,7 @@ function previewSource (source) {
 async function process (source) {
   let app = this
 
-  console.log('Processing source:', source.name)
+  log('Vue: processing source ' + source.name)
 
   source.loading = true // Currently stream is loading
   source.progress = 0 // Nullify the progress
@@ -532,25 +532,40 @@ async function process (source) {
     writer.write(encoder.encode(header))
   }
 
-  // Create a new collection, false - not preview
-  let collection = new Collection(source, false)
-  if (source.pipeline.filters.length) collection.name += '(f' + source.pipeline.filters.length + ')'
-  if (!source.pipeline.restructure.showAllColumns && (source.columns.length !== source.pipeline.restructure.newColumns.length)) collection.name += '(s' + source.pipeline.restructure.newColumns.length + ')'
+  /*
+    Check if we should create a new collection
+    Create one
+  */
+  if (source.pipeline.charts.length || source.pipeline.output.toTable || source.pipeline.output.toMemory) {
+    // Create a new collection, false - not preview
+    var collection = new Collection(source, false)
 
-  // Indicate that collection is also loading (needed when close collection when loading)
-  collection.loading = true
+    // Add name modifiers
+    if (source.pipeline.filters.length) {
+      collection.name += '(f' + source.pipeline.filters.length + ')'
+    }
+    if (!source.pipeline.restructure.showAllColumns && (source.columns.length !== source.pipeline.restructure.newColumns.length)) {
+      collection.name += '(s' + source.pipeline.restructure.newColumns.length + ')'
+    }
 
-  // Store a pipeline that produced this collection
-  collection.pipeline = clone(source.pipeline)
+    // Indicate that collection is also loading (needed when close collection when loading)
+    collection.loading = true
 
-  const columns = source.pipeline.restructure.newColumns
-  collection.values.push(columns.slice(0))
+    // Store a pipeline that produced this collection
+    collection.pipeline = clone(source.pipeline)
 
-  // Update table data
-  ht.loadData(collection.values)
+    var columns = source.pipeline.restructure.newColumns
+    collection.values.push(columns.slice(0))
 
-  app.collections.push(collection)
-  app.activeCollection = app.collections.length - 1
+    // Update table data
+    ht.loadData(collection.values)
+
+    // Add new collection to the collections list
+    app.collections.push(collection)
+
+    // Activate collection
+    app.activeCollection = app.collections.length - 1
+  }
 
   // Create a new readable stream to preserve preview stream
   source.stream2 = await createStream((source.file) ? source.file : source.url)
@@ -712,27 +727,30 @@ async function process (source) {
   })
 
   source.stream2.on('end', () => {
-    // Initialize charts
-    ht.loadData(collection.values)
-    ht.render()
+    // Finalize collection
+    if (source.pipeline.charts.length || source.pipeline.output.toTable || source.pipeline.output.toMemory) {
+      log('Table: Reloading data')
+      ht.loadData(collection.values)
+      ht.render()
+      collection.loading = false
+      log('Vue: Adding charts to collection')
+      source.pipeline.charts.forEach(c => {
+        const chart = clone(c)
+        chart.collection = collection
+        collection.charts.push(chart)
+      })
+    }
+    // Finalize output file stream
     if (source.pipeline.output.toStream) {
-      console.log('Writer: Closing the stream')
+      log('Writer: Closing the stream')
       setTimeout(() => {
         writer.close()
       }, 500)
     }
-    log('Collection: ', collection)
-    console.log('[Event] Stream end')
-    console.log('[Loop] Loading charts (source -> collection)')
-    source.pipeline.charts.forEach(c => {
-      const chart = clone(c)
-      chart.collection = collection
-      collection.charts.push(chart)
-    })
-
-    app.notify('Processing finished')
+    log('Vue: Stream ended')
+    app.notify('Done')
+    // Indicate that source is not loading anymore
     source.loading = false
-    collection.loading = false
   })
 } // *process()
 

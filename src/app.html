@@ -488,6 +488,7 @@
         <md-button
           v-on:click.native="showCollection(i)"
         >
+          <md-icon v-if="collection.preview" style="opacity: .3; margin-right: 5px; font-size: 22px">visibility</md-icon>
           {{ collection.name }}
         </md-button>
         <md-button 
