@@ -35,11 +35,11 @@
 
     <div class="info-block" v-if="beaverMessage.length" v-html="beaverMessage"></div>
     <img src="beaver-small.png" class="beaver"/>
-  </div>
+  </div> <!-- *.source-bar -->
 
   <!--
   *****************
-  TRANSORMATION BAR
+  TRANSFORM BAR
   *****************
   -->
   <div class="transform-bar" v-if="sources.length">
@@ -468,7 +468,7 @@
         <md-button v-if="sources[activeSource].loading" v-on:click.native="stop(sources[activeSource])" class="md-raised md-accent control-button"><md-icon>stop</md-icon> Stop</md-button>
       </md-card>
     </div>
-  </div>
+  </div> <!-- *.transform-bar -->
 
   <!--
   ************************
@@ -702,34 +702,34 @@
 
     <!-- Alerts and errors -->
     <md-dialog-alert
-    :md-content="error.content"
-    :md-ok-text="error.button"
-    ref="error">
-  </md-dialog-alert>
+      :md-content="error.content"
+      :md-ok-text="error.button"
+      ref="error"
+    ></md-dialog-alert>
 
-  <!-- Open file dialog -->
-  <md-dialog
-  class="open-dialog"
-  md-open-from="#open-button"
-  md-close-to="#open-button"
-  ref="open-dialog"
-  >
-  <md-dialog-title>Open input data source</md-dialog-title>
-  <md-dialog-content style="min-width: 450px;">
-    <md-input-container>
-      <label>Local CSV or XML file</label>
-      <md-file @change.native="loadFiles($event.target.files)" multiple></md-file>
-    </md-input-container>
-    <p>or paste a link</p>
-    <md-input-container>
-      <label>Link to CSV or XML file</label>
-      <md-input v-model="url" @blur.native="loadUrl"></md-input>
-      <md-icon style="cursor: pointer">link</md-icon>
-    </md-input-container>
-  </md-dialog-content>
-  <md-dialog-actions>
-    <md-button class="md-primary" @click.native="closeOpenDialog">Cancel</md-button>
-  </md-dialog-actions>
-</md-dialog>
-</div>
-</div>
+    <!-- Open file dialog -->
+    <md-dialog
+    class="open-dialog"
+    md-open-from="#open-button"
+    md-close-to="#open-button"
+    ref="open-dialog"
+    >
+      <md-dialog-title>Open input source</md-dialog-title>
+      <md-dialog-content style="min-width: 450px;">
+        <md-input-container>
+          <label>Local CSV or XML file</label>
+          <md-file @change.native="loadFiles($event.target.files)" multiple></md-file>
+        </md-input-container>
+        <p>or paste a link</p>
+        <md-input-container>
+          <label>Link to CSV or XML file</label>
+          <md-input v-model="url" @blur.native="loadUrl"></md-input>
+          <md-icon style="cursor: pointer">link</md-icon>
+        </md-input-container>
+      </md-dialog-content>
+      <md-dialog-actions>
+        <md-button class="md-primary" @click.native="closeOpenDialog">Cancel</md-button>
+      </md-dialog-actions>
+    </md-dialog>
+  </div> <!-- *.content -->
+</div> <!-- *#app -->
