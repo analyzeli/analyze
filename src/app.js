@@ -1,68 +1,33 @@
-// Streams reading and transformation
+/*
+  EXTERNAL DEPENDENCIES
+*/
 const ReadStream = require('filestream').read
 const through2 = require('through2') // Transform stream
 const filter = require('stream-filter') // Filter string and obj streams
 const FileSaver = require('file-saver')
 const StreamSaver = require('streamsaver')
 const http = require('stream-http') // XHR as a stream
+const HandsonTable = require('handsontable') // Table visualization
+const flat = require('flat')
+const J2SParser = require('json2csv').Parser // Convert array of objects to CSV
+const X2JParser = new (require('xml2js')).Builder({'pretty': false, 'indent': '', 'newline': ''})
+const dnd = require('drag-and-drop-files') // Handle Drag and Drop events
+const encoder = new window['TextEncoder']()
+
+/*
+  INTERNAL DEPENDENCIES
+*/
 const getCsvStreamStructure = require('./utils/get-csv-stream-structure.js') // Get CSV header
 const getXmlStreamStructure = require('./utils/get-xml-stream-structure.js') // Get XML nodes and repeated node
 const splitStream = require('./utils/split-stream')
 const parseStream = require('./utils/parse-stream')
 const functionStream = require('./utils/function-stream')
 const isExactlyNaN = require('./utils/is-exactly-nan')
-
-const TextEncoder = window['TextEncoder']
-const encoder = new TextEncoder()
-
-// const xmlObjects = require('xml-objects') // Parse XML
-// const csv = require('csv-parser') // Parse CSV
-// const Combiner = require('stream-combiner') // Combine multiple transform streams into one
-// const ts = require('ternary-stream') // Conditionally pipe streams
-// const split = require('split') // Split a text stream by lines
-// const lineParser = require('csv-parse/lib/sync') // Parse CSV line
-// const xmlNodes = require('xml-nodes')
-
-const HandsonTable = require('handsontable')
-
-// Objects
-const flat = require('flat')
-const J2SParser = require('json2csv').Parser // Convert array of objects to CSV
-const X2JParser = new (require('xml2js')).Builder({'pretty': false, 'indent': '', 'newline': ''})
-// const path = require('object-path') // Acess nested object properties with a variable -- everything is flat now
-// const saveToCollection = require('./save-to-collection.js')
-// const escape = require('html-escape') // Sanitize url
-
-// Stats
-const dnd = require('drag-and-drop-files') // Handle Drag and Drop events
-// const group = require('./group.js') //Group by a properties
-
-// Other
-// const Dygraph = require('dygraphs')
-// const moment = require('moment')
 const Querify = require('./utils/querify.js')
-// const queryString = require('query-string')
 
-// const CHUNKSIZE = 100 * 1024 // Set chunk size fixed for all file sizes
-
-// Console log helper
-function log (...args) {
-  if (!process.env || !(process.env.NODE_ENV === 'production')) {
-    args.forEach(a => {
-      if ((typeof a === 'object') && !Array.isArray(a)) {
-        console.log(JSON.stringify(a, null, 2))
-      } else {
-        console.log(a)
-      }
-    })
-  }
-}
-
-function showApp () {
-  document.getElementById('app-loader').style.display = 'none'
-  document.getElementById('app').style.removeProperty('display')
-}
-
+/*
+  CLASSES
+*/
 class Chart {
   constructor (type, id) {
     this.name = type + '.' + id
@@ -199,11 +164,29 @@ class Collection {
 }
 
 const TopK = require('./stat/topk')
-// var Group = require('./stat/group')
 const Stats = {TopK}
 
 // Query (GET) parser that reads/writes only certain columns
 const querify = new Querify(['run', 'url', 'filters', 'restructure', 'functions', 'charts', 'output'])
+
+// Console log helper
+function log (...args) {
+  if (!process.env || !(process.env.NODE_ENV === 'production')) {
+    args.forEach(a => {
+      if ((typeof a === 'object') && !Array.isArray(a)) {
+        console.log(JSON.stringify(a, null, 2))
+      } else {
+        console.log(a)
+      }
+    })
+  }
+}
+
+function showApp () {
+  document.getElementById('app-loader').style.display = 'none'
+  document.getElementById('app').style.removeProperty('display')
+}
+
 
 // Clone object
 function clone (obj) {
@@ -753,58 +736,6 @@ async function process (source) {
     source.loading = false
   })
 } // *process()
-
-/*
-const data = collection.records[c.xColumn]
-  .map((v, i) => {
-    let xValue = i
-    if (isFinite(v)) {
-      xValue = parseFloat(v)
-    } else {
-      const xDate = moment(v)
-      if (xDate.isValid()) {
-        xValue = xDate.toDate()
-      }
-    }
-    return [
-      xValue,
-      parseFloat(collection.records[c.yColumns[0]][i])
-    ]
-  })
-console.log('Chart data: ', data)
-chart.container = document.createElement('div')
-chart.container.id = chart.name + '.' + app.chartsCounter
-chart.container.style.position = 'relative'
-chart.container.style.width = '90%'
-app.$refs.charts.appendChild(chart.container)
-chart.g = new Dygraph(
-  chart.container,
-  data,
-  {}
-)
-chart.options = {
-  series: [],
-  chart: {
-    type: 'line',
-    zoomType: 'x'
-  },
-  rangeSelector: {
-    enabled: true,
-    floating: true
-  },
-  navigator: {
-    margin: 60
-  }
-}
-chart.yColumns.forEach((column) => {
-  console.log('Column:', column)
-  console.log('Data:', collection.records[column])
-  chart.options.series.push({
-    name: column,
-    data: collection.records[column].map(v => parseFloat(v))
-  })
-})
-*/
 
 function stop (source) {
   const app = this
