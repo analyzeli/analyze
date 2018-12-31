@@ -1,6 +1,6 @@
 {
   "name": "analyze",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Data manipulation in a browser",
   "main": "index.html",
   "scripts": {
@@ -13,8 +13,8 @@
   "author": "Anton Zemlyansky",
   "license": "ISC",
   "devDependencies": {
-    "@babel/core": "^7.2.0",
-    "@babel/preset-env": "^7.2.0",
+    "@babel/core": "^7.2.2",
+    "@babel/preset-env": "^7.2.3",
     "babelify": "^10.0.0",
     "browserify": "^14.5.0",
     "browserify-shim": "^3.8.14",
@@ -36,7 +36,7 @@
     "highcharts": "^6.2.0",
     "highcharts-vue": "^1.2.0",
     "html-escape": "^2.0.0",
-    "is": "^3.2.1",
+    "is": "^3.3.0",
     "is-json": "^2.0.1",
     "json2csv": "^4.3.2",
     "moment": "^2.23.0",
@@ -45,7 +45,7 @@
     "query-string": "^4.3.2",
     "split": "^1.0.0",
     "stream-filter": "^2.1.0",
-    "stream-http": "^2.8.3",
+    "stream-http": "^2.6.3",
     "streamcount": "^1.0.1",
     "streamsaver": "^1.0.1",
     "through2": "^2.0.5",
