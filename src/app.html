@@ -690,7 +690,7 @@
 
     <!-- Table with values -->
     <div id="gradient" :style="{display: (collections.length && collections[activeCollection].preview) ? 'block' : 'none'}"></div>
-    <div id="hottable" :style="{display: (collections.length) ? 'block' : 'none'}"></div>
+    <div id="hottable"></div>
 
     <textarea id="query" v-if="sources.length && sources[activeSource].url && sources[activeSource].url.length" rows="5">{{ newQuery }} </textarea>
 

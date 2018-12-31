@@ -194,7 +194,7 @@ function clone (obj) {
 
 // Prepare source (from URL)
 function createSourceFromUrl (url) {
-  log('Vue: Create source from url', url)
+  log('[Vue] Create source from url:', url)
   return new Source({
     url: url,
     name: url.split('/').pop().split('?').shift(),
@@ -208,7 +208,7 @@ function createSourceFromUrl (url) {
 // Prepare source (from FILE)
 // Creates a source object for each file, adds them to array of new sources, calls universal function loadSources
 function createSourcesFromFiles (files) {
-  log(`Vue: Create sources from ${files.length} files`)
+  log(`[Vue] Create sources from ${files.length} files`)
   let sources = []
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
@@ -226,10 +226,11 @@ function createSourcesFromFiles (files) {
 
 // Creates a stream based on file object or url
 function createStream (f) {
+  log('[Vue] Create stream')
   return new Promise((resolve, reject) => {
     let stream
     if (f.size) {
-      console.log('File size: ', f.size)
+      log(`[Vue] Creating stream for a file of size: ${f.size}B`)
       /*
       if (f.size < 104857600) {
         stream = new ReadStream(f, {chunkSize: 102400})
@@ -245,6 +246,7 @@ function createStream (f) {
     } else if (f.length) {
       // const request =
       // 1st request
+      log(`[Vue] Creating stream for the url: ${f}`)
       const request = http.get(f, function (res) {
         if (res.statusCode === 200) {
           stream = res
@@ -380,6 +382,10 @@ async function preprocess (params) {
   let app = this
   let sources
 
+  // Show table
+  document.getElementById('hottable').style.display = 'block'
+
+  log('[Preprocess] Got params:', params)
   if (params && params.files) {
     sources = createSourcesFromFiles(params.files)
   } else if (params && params.url) {
@@ -388,6 +394,7 @@ async function preprocess (params) {
     app.showError('No sources provided')
   }
 
+  log('[Preprocess] Created such sources:', sources)
   for (let source of sources) {
     // Create readable streams
     try {
@@ -399,6 +406,7 @@ async function preprocess (params) {
     // Detect structure (columns)
     const structure = await getStreamStructure(source.stream, source.type)
     source = Object.assign(source, structure)
+    log('[Preprocess] Got source structure:', structure)
 
     // By default, restructured collection has the same structure
     source.pipeline.restructure.newColumns = source.columns.slice(0)
@@ -413,10 +421,12 @@ async function preprocess (params) {
       // Load querified  pipeline
       Object.assign(source.pipeline, app.runPipeline)
       // Process source
+      log('[Preprocess] Start process()')
       app.process(source)
     } else {
       // By default open each source in the preview mode
-      app.previewSource(source)
+      log('[Preprocess] Start preview()')
+      app.preview(source)
     }
   }
   // Hide file dialog
@@ -426,7 +436,8 @@ async function preprocess (params) {
 /*
   PREVIEW SOURCE
 */
-function previewSource (source) {
+function preview (source) {
+  log('[Preview] Got source!')
   // source.isStreamAnalyzed = true
   // if (app.searchColumn.length === 0) app.searchColumn = app.columns[0]
   /*
@@ -445,8 +456,10 @@ function previewSource (source) {
 
   const columns = source.columns
   collection.values.push(columns.slice(0))
+  log('[Preview] Push column headers to collection.values:', columns)
 
   ht.loadData(collection.values)
+  log('[Preview] New data linked to the table')
 
   // Indicate that it's a preview collection
   collection.preview = true
@@ -489,6 +502,7 @@ function previewSource (source) {
   })
 
   source.stream.on('end', () => {
+    log('[Preview] Stream ended, update the table with values:', collection.values)
     ht.loadData(collection.values)
     ht.render()
   })
@@ -995,7 +1009,7 @@ const appOptions = {
     open,
     notify,
     generateLink,
-    previewSource, // create a preview collection from source
+    preview, // create a preview collection from source
     preprocess, // preprocess source
     process, // process source
     stop, // stop source
@@ -1046,6 +1060,7 @@ const appOptions = {
     // Remove collection by its index
     removeCollection (i) {
       const app = this
+      log(`[Remove collection] Number: ${i}`)
       // Stop source if loading
       if (app.collections[i].loading) {
         app.stop(app.collections[i].source)
@@ -1055,8 +1070,13 @@ const appOptions = {
       // Reset active collection
       if (i < app.activeCollection) {
         app.activeCollection -= 1
-      } else if (i === app.activeCollection) {
+      } else if ((i === app.activeCollection) && (app.collections.length)) {
         app.showCollection(i ? i - 1 : i)
+      }
+      log(`[Remove collection] Collections length: ${app.collections.length}`)
+      if (app.collections.length === 0) {
+        log('[Remove collection] Hiding the table')
+        document.getElementById('hottable').style.display = 'none'
       }
     },
     // Source methods
@@ -1134,11 +1154,11 @@ const appOptions = {
       this.$refs['error'].close()
     },
     showOpenDialog () {
-      console.log('Show open dialog')
+      log('[Vue] Show open dialog')
       this.$refs['open-dialog'].open()
     },
     closeOpenDialog () {
-      console.log('Show open dialog')
+      log('[Vue] Close open dialog')
       this.$refs['open-dialog'].close()
     }
   },
