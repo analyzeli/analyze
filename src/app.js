@@ -187,37 +187,29 @@ function showApp () {
   document.getElementById('app').style.removeProperty('display')
 }
 
-
 // Clone object
 function clone (obj) {
   return JSON.parse(JSON.stringify(obj))
 }
 
 // Prepare source (from URL)
-function loadUrl () {
-  const app = this
-  if (app.url && app.url.length) {
-    console.log('Loading URL: ', app.url)
-    const source = new Source({
-      url: app.url,
-      name: app.url.split('/').pop().split('?').shift(),
-      type: ((app.url.indexOf('csv') > 0) || (app.url.indexOf('tsv' > 0)))
-        ? 'csv'
-        : 'xml',
-      preview: true
-    })
-
-    // app.loadSources() accepts arrays, so wrap one URL-based source in an array
-    app.loadSources([source])
-  }
+function createSourceFromUrl (url) {
+  log('Vue: Create source from url', url)
+  return new Source({
+    url: url,
+    name: url.split('/').pop().split('?').shift(),
+    type: ((url.indexOf('csv') > 0) || (url.indexOf('tsv' > 0)))
+      ? 'csv'
+      : 'xml',
+    preview: true
+  })
 }
 
 // Prepare source (from FILE)
 // Creates a source object for each file, adds them to array of new sources, calls universal function loadSources
-function loadFiles (files) {
-  console.log('Loading files: ', files)
-  const app = this
-  const newSources = []
+function createSourcesFromFiles (files) {
+  log(`Vue: Create sources from ${files.length} files`)
+  let sources = []
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
     const source = new Source({
@@ -225,13 +217,11 @@ function loadFiles (files) {
       name: file.name, // name of the source
       type: file.type.slice(file.type.indexOf('/') + 1), // file type (csv or xml)
       size: file.size, // size
-      // stream: new ReadStream(file), // node readable stream
       preview: true // source just opened, preload it when scroll
     })
-    newSources.push(source)
+    sources.push(source)
   }
-
-  app.loadSources(newSources)
+  return sources
 }
 
 // Creates a stream based on file object or url
@@ -380,9 +370,24 @@ function restructureObjectStream (newColumns, showAllColumns) {
   })
 }
 
-// Here we have sources, create streams, get approximate structure (columns).
-async function loadSources (sources) {
-  const app = this
+/*
+  PREPROCESS:
+  1. Generate sources
+  2. Initialize sources
+  3. Start preview(source) or process(source) for each source
+*/
+async function preprocess (params) {
+  let app = this
+  let sources
+
+  if (params && params.files) {
+    sources = createSourcesFromFiles(params.files)
+  } else if (params && params.url) {
+    sources = [createSourceFromUrl(app.url)]
+  } else {
+    app.showError('No sources provided')
+  }
+
   for (let source of sources) {
     // Create readable streams
     try {
@@ -390,7 +395,7 @@ async function loadSources (sources) {
     } catch (e) {
       app.showError(e.message)
     }
-    //  app.showError(e.message)
+
     // Detect structure (columns)
     const structure = await getStreamStructure(source.stream, source.type)
     source = Object.assign(source, structure)
@@ -398,28 +403,29 @@ async function loadSources (sources) {
     // By default, restructured collection has the same structure
     source.pipeline.restructure.newColumns = source.columns.slice(0)
 
-    // Add a new source to app.sources
+    // Add this source to reactive app.sources
     app.sources.push(source)
 
-    // Check if we are in RUN mode (loaded from GET vars)
+    // Check if we are in the RUN mode (loaded url)
     if (app.run) {
       // Deactivate RUN mode
       app.run = false
       // Load querified  pipeline
       Object.assign(source.pipeline, app.runPipeline)
-      // Process
+      // Process source
       app.process(source)
     } else {
-      // Preview source
+      // By default open each source in the preview mode
       app.previewSource(source)
     }
-    // app.showCollection(app.collections.length - 1) // show latest added collection
   }
   // Hide file dialog
   app.closeOpenDialog()
 }
 
-// Store data structure, trigger loader if needed
+/*
+  PREVIEW SOURCE
+*/
 function previewSource (source) {
   // source.isStreamAnalyzed = true
   // if (app.searchColumn.length === 0) app.searchColumn = app.columns[0]
@@ -483,7 +489,6 @@ function previewSource (source) {
   })
 
   source.stream.on('end', () => {
-    // Initialize charts
     ht.loadData(collection.values)
     ht.render()
   })
@@ -491,7 +496,9 @@ function previewSource (source) {
   app.notify('Preview opened. Scroll to load more...')
 }
 
-// Process source
+/*
+  PROCESS SOURCE
+*/
 async function process (source) {
   let app = this
 
@@ -988,10 +995,8 @@ const appOptions = {
     open,
     notify,
     generateLink,
-    loadUrl, // create source from url
-    loadFiles, // create source from local file
-    loadSources, // create streams for sources
     previewSource, // create a preview collection from source
+    preprocess, // preprocess source
     process, // process source
     stop, // stop source
     save, // save collection
@@ -1256,7 +1261,7 @@ const appOptions = {
             if (queryObj[key]) app.runPipeline[key] = queryObj[key]
           })
           console.log(app.runPipeline)
-          app.loadUrl()
+          app.preprocess({url: app.url})
         }, 100)
       } else {
         setTimeout(function () {
@@ -1265,7 +1270,7 @@ const appOptions = {
         }, 100)
         // Attach drag-and-drop event
         dnd(document.body, (files) => {
-          app.loadFiles(files)
+          app.preprocess(files)
         })
       }
     } else {

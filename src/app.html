@@ -689,8 +689,8 @@
     </div>
 
     <!-- Table with values -->
-    <div id="gradient" v-if="collections.length && collections[activeCollection].preview"></div>
-    <div id="hottable"></div>
+    <div id="gradient" :style="{display: (collections.length && collections[activeCollection].preview) ? 'block' : 'none'}"></div>
+    <div id="hottable" :style="{display: (collections.length) ? 'block' : 'none'}"></div>
 
     <textarea id="query" v-if="sources.length && sources[activeSource].url && sources[activeSource].url.length" rows="5">{{ newQuery }} </textarea>
 
@@ -718,12 +718,12 @@
       <md-dialog-content style="min-width: 450px;">
         <md-input-container>
           <label>Local CSV or XML file</label>
-          <md-file @change.native="loadFiles($event.target.files)" multiple></md-file>
+          <md-file @change.native="preprocess({files: $event.target.files})" multiple></md-file>
         </md-input-container>
         <p>or paste a link</p>
         <md-input-container>
           <label>Link to CSV or XML file</label>
-          <md-input v-model="url" @blur.native="loadUrl"></md-input>
+          <md-input v-model="url" @blur.native="preprocess({url: url})"></md-input>
           <md-icon style="cursor: pointer">link</md-icon>
         </md-input-container>
       </md-dialog-content>
